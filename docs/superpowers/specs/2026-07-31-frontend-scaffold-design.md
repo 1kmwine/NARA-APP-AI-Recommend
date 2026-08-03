@@ -5,7 +5,7 @@
 `NARA-Information-Digest`(허브) 아키텍처 문서 기준, 이 리포는 앱 레이어 블록
 `nara-app-ai-recommend`("AI 와인 추천")를 담당한다. 최종적으로는 33개 블록 중
 하나로 허브 카드에서 iframe/프록시 연결되며, 백엔드는 앱 레이어 컨벤션상
-Python(FastAPI), DB는 MariaDB 테스트 서버(`192.168.47.105`) 위 전용 스키마를
+Python(FastAPI), DB는 MariaDB 테스트 서버(`{{DB_HOST}}`) 위 전용 스키마를
 쓴다(다른 블록의 패턴, 예: `wine_info` 스키마 + `wine_info_app` 계정과 동일).
 
 이번 단계 범위: **프론트엔드 스캐폴드만.** 실제 화면은 사용자가 Claude Design으로
