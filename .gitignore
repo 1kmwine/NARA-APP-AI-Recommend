@@ -4,3 +4,4 @@ next-env.d.ts
 *.tsbuildinfo
 .env
 CREDENTIALS.local.md
+.claude/settings.local.json

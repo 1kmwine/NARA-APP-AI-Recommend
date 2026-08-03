@@ -1,0 +1,416 @@
+@keyframes bottleFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-9px); }
+}
+@keyframes cardSwapIn {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.page {
+  min-height: 100vh;
+  width: 100%;
+  background: #EFE7D8;
+  font-family: 'Manrope', sans-serif;
+  color: #241C15;
+}
+
+/* header */
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 28px 48px 0;
+}
+.brand {
+  font-family: 'Instrument Serif', serif;
+  font-size: 26px;
+  letter-spacing: 0.01em;
+}
+.tagline {
+  font-size: 13px;
+  color: #8A7F6E;
+  font-weight: 600;
+}
+
+/* intro */
+.introSection {
+  max-width: 520px;
+  margin: 0 auto;
+  padding: 90px 24px 60px;
+  position: relative;
+}
+.dots {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 40px;
+}
+.dot {
+  height: 4px;
+  border-radius: 2px;
+  flex: 1;
+  background: #EFE3D0;
+  transition: background 0.3s;
+}
+.dotActive {
+  flex: 2.5;
+  background: #D97756;
+}
+.stepCard {
+  animation: cardSwapIn 0.45s ease both;
+}
+.stepLabel {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #B0724F;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+.question {
+  font-family: 'Instrument Serif', serif;
+  font-size: 48px;
+  line-height: 1.12;
+  margin-bottom: 40px;
+}
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 20px 26px;
+  border-radius: 18px;
+  border: 1.5px solid #E4D5BE;
+  background: #FBF6EC;
+  font: inherit;
+  font-size: 18px;
+  font-weight: 600;
+  color: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.option:hover {
+  border-color: #D97756;
+  background: #FCEEE4;
+  transform: translateX(4px);
+}
+.option:active {
+  transform: scale(0.98);
+}
+
+/* stage */
+.stage {
+  position: relative;
+  display: grid;
+  grid-template-columns: 150px 1fr 150px;
+  grid-template-rows: 120px 1fr 120px;
+  align-items: center;
+  min-height: 680px;
+  padding: 10px 32px 50px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.priceUpWrap {
+  grid-column: 2;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+.priceDownWrap {
+  grid-column: 2;
+  grid-row: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+.regionWrap {
+  grid-column: 1;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.pairingWrap {
+  grid-column: 3;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.cardsRow {
+  grid-column: 2;
+  grid-row: 2;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.joyBtn {
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  font-weight: 800;
+  background: #FBF6EC;
+  border: 1.5px solid #E4D5BE;
+  cursor: pointer;
+  transition: transform 0.12s;
+  padding: 0;
+}
+.joyBtn:active {
+  transform: scale(0.9);
+}
+.joyBtnDisabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.joyAccent { color: #D97756; }
+.joyRegion { color: #6E2A46; }
+.joyPairing { color: #6B7A4A; }
+.joyLabel {
+  font-size: 12.5px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* card */
+.card {
+  width: 280px;
+  position: relative;
+  background: #FFFDF8;
+  border-radius: 28px;
+  padding: 20px;
+  box-shadow: 0 20px 45px rgba(60, 40, 20, 0.14);
+  animation: cardSwapIn 0.4s ease both;
+}
+.saveBtn {
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #FFFFFF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 3;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  font-size: 16px;
+  color: #8A7F6E;
+  padding: 0;
+}
+.saveBtn:active {
+  transform: scale(0.88);
+}
+.saveBtnActive {
+  background: #FCEEE4;
+  color: #B0392C;
+}
+.excludeBtn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: #F2ECE2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: #241C15;
+  cursor: pointer;
+  z-index: 3;
+  transition: all 0.15s;
+  padding: 0;
+}
+.excludeBtn:hover {
+  background: #FCEEE4;
+  color: #B0392C;
+}
+.excludeBtn:active {
+  transform: scale(0.85) rotate(90deg);
+}
+
+.bottleWrap {
+  height: 156px;
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  margin-top: 18px;
+}
+.bottleAnim {
+  animation: bottleFloat 4.5s ease-in-out infinite;
+}
+.cap {
+  width: 30px;
+  height: 14px;
+  margin: 0 auto;
+  border-radius: 5px 5px 0 0;
+}
+.neck {
+  width: 19px;
+  height: 40px;
+  margin: 0 auto;
+  box-shadow: inset -4px 0 7px rgba(0, 0, 0, 0.25);
+}
+.shoulder {
+  width: 0;
+  height: 0;
+  margin: 0 auto;
+  border-left: 17px solid transparent;
+  border-right: 17px solid transparent;
+  border-bottom: 22px solid;
+}
+.bottleBody {
+  width: 94px;
+  height: 106px;
+  margin: -1px auto 0;
+  border-radius: 9px 9px 14px 14px;
+  position: relative;
+  box-shadow: inset -12px 0 20px rgba(0, 0, 0, 0.18), 0 12px 16px rgba(0, 0, 0, 0.14);
+}
+.labelPatch {
+  position: absolute;
+  top: 38px;
+  left: 18px;
+  right: 18px;
+  bottom: 22px;
+  background: #FFFCF5;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+.labelRegion {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #B0724F;
+  text-transform: uppercase;
+}
+.labelGrape {
+  font-family: 'Instrument Serif', serif;
+  font-style: italic;
+  font-size: 12.5px;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.wineName {
+  font-family: 'Instrument Serif', serif;
+  font-size: 21px;
+  text-align: center;
+  margin-top: 10px;
+}
+.wineMeta {
+  font-size: 11.5px;
+  color: #8A7F6E;
+  margin-top: 2px;
+  font-weight: 500;
+  text-align: center;
+}
+.priceRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+.price {
+  font-family: 'Instrument Serif', serif;
+  font-size: 28px;
+  color: #D97756;
+}
+.priceDesc {
+  font-size: 11.5px;
+  color: #8A7F6E;
+  font-weight: 600;
+}
+.note {
+  text-align: center;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #4a3f33;
+  margin-top: 8px;
+  min-height: 38px;
+}
+.chips {
+  display: flex;
+  gap: 5px;
+  justify-content: center;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.chip {
+  padding: 5px 10px;
+  border-radius: 20px;
+  font-size: 10.5px;
+  font-weight: 700;
+  background: #FBF6EC;
+  color: #8A7F6E;
+  border: 1.5px solid #E4D5BE;
+}
+.chipActive {
+  background: #241C15;
+  color: #FBF6EC;
+  border-color: #241C15;
+}
+.personaBox {
+  margin-top: 10px;
+  background: #FCEEE4;
+  border-radius: 20px;
+  padding: 10px 12px;
+}
+.personaLine {
+  font-size: 11px;
+  line-height: 1.45;
+  color: #6E2A46;
+  font-weight: 600;
+}
+
+.resetWrap {
+  text-align: center;
+  padding-bottom: 40px;
+  animation: fadeInUp 0.3s ease both;
+}
+.resetLink {
+  display: inline-block;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #8A7F6E;
+  background: none;
+  border: none;
+  border-bottom: 1.5px solid #8A7F6E;
+  cursor: pointer;
+  padding: 0 0 2px;
+}
