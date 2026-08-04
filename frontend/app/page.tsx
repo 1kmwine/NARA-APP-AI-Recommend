@@ -74,14 +74,25 @@ export default function Home() {
 
   useEffect(() => {
     if (isIntro) return;
+    let ignore = false;
     setLoading(true);
     const typeB = COMPANION_TYPE[typeAnswer];
     Promise.all([
       fetchRecommendation({ priceTier: tierIndex, countryIndex, regionIndex, wineType: typeAnswer, pairingText }),
       fetchRecommendation({ priceTier: tierIndex, countryIndex, regionIndex, wineType: typeB, pairingText }),
     ])
-      .then(([a, b]) => setCardData({ a, b }))
-      .finally(() => setLoading(false));
+      .then(([a, b]) => {
+        if (!ignore) setCardData({ a, b });
+      })
+      .catch(() => {
+        if (!ignore) setCardData({ a: null, b: null });
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
   }, [isIntro, typeAnswer, countryIndex, regionIndex, tierIndex, pairingText]);
 
   function bumpAll() {
