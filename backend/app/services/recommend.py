@@ -1,6 +1,11 @@
 from typing import Callable
 
 from app.services.price_tiers import widen_tier_ranges
+from app.services.region_overrides import (
+    extract_raw_region,
+    normalize_region_label,
+    region_to_country,
+)
 
 SearchFn = Callable[[int, int | None], list[dict]]
 
@@ -26,12 +31,27 @@ def find_with_fallback(tier_index: int, search: SearchFn) -> list[dict]:
     return []
 
 
+def _matches_country_region(
+    place_json: str | None, country_name: str | None, country: str, region: str
+) -> bool:
+    """query_candidates()가 SQL에서 못 거르는 country/region을, region_cache.py의
+    집계와 동일한 정규화 로직으로 후필터링한다 — 지역 브라우저가 "France/부르고뉴"로
+    센 와인과 실제 검색 결과가 어긋나지 않게 같은 함수를 재사용한다."""
+    raw_region = extract_raw_region(place_json)
+    row_country = region_to_country(raw_region) or country_name or "기타"
+    row_region_label = normalize_region_label(raw_region) if raw_region else "기타"
+    return row_country == country and row_region_label == region
+
+
 def query_candidates(
     session, wine_type: str, country: str, region: str, price_min: int, price_max: int | None
 ) -> list[dict]:
     """실제 DB 조회 — integrated_item_info + wine_price_cache + wine_notes(override).
-    이 함수는 SQL 어댑터라 단위테스트 대상 아님(순수 로직은 find_with_fallback/
-    pick_top_candidates로 이미 커버됨). 통합 검증은 Task 14에서 진행."""
+    DB에서는 type+가격만 거르고, country/region은 _matches_country_region()으로
+    Python에서 후필터링한다(place/country가 자유텍스트 JSON이라 SQL로 못 거름 —
+    NARA-DATA-Wine-Info의 SQL CASE/CTE 시도 실패 이력 참고). 이 함수는 SQL 어댑터라
+    단위테스트 대상 아님(순수 로직은 _matches_country_region/find_with_fallback/
+    pick_top_candidates로 커버됨). 통합 검증은 Task 14에서 진행."""
     from sqlalchemy import text
 
     price_clause = "AND p.price_krw <= :price_max" if price_max is not None else ""
@@ -39,7 +59,7 @@ def query_candidates(
         text(
             f"""
             SELECT i.itemCd, i.nameKo, i.type, i.producer, i.variety, i.country,
-                   i.place, i.taste AS taste_raw, i.desc1, i.pdataId,
+                   i.place, i.countryName, i.taste AS taste_raw, i.desc1, i.pdataId,
                    i.reviews, i.wishes,
                    p.price_krw,
                    n.taste AS notes_taste_raw, n.tastingNote, n.foodPairing
@@ -58,4 +78,8 @@ def query_candidates(
         },
     ).mappings().all()
 
-    return [dict(r) for r in rows]
+    return [
+        dict(r)
+        for r in rows
+        if _matches_country_region(r.get("place"), r.get("countryName"), country, region)
+    ]
