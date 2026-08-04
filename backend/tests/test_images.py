@@ -43,3 +43,8 @@ def test_validate_pdata_id_accepts_correct_format():
 def test_validate_pdata_id_rejects_bad_format():
     with pytest.raises(InvalidPdataId):
         validate_pdata_id("../../etc/passwd")
+
+
+def test_validate_pdata_id_rejects_trailing_newline():
+    with pytest.raises(InvalidPdataId):
+        validate_pdata_id("00004338_7562cd0b-aad4-4383-a980-c0c52ada67d5\n")

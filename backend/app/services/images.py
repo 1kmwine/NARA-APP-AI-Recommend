@@ -22,7 +22,7 @@ class InvalidVariant(ValueError):
 
 
 def validate_pdata_id(pdata_id: str) -> None:
-    if not PDATA_ID_PATTERN.match(pdata_id):
+    if not PDATA_ID_PATTERN.fullmatch(pdata_id):
         raise InvalidPdataId(f"invalid pdataId: {pdata_id!r}")
 
 
