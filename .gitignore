@@ -5,3 +5,6 @@ next-env.d.ts
 .env
 CREDENTIALS.local.md
 .claude/settings.local.json
+__pycache__/
+*.pyc
+.venv/
