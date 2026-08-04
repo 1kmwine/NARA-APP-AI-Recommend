@@ -1,6 +1,12 @@
 import pytest
 
-from app.services.images import InvalidPdataId, InvalidVariant, build_nas1_url, validate_pdata_id
+from app.services.images import (
+    InvalidPdataId,
+    InvalidVariant,
+    _detect_image_mime,
+    build_nas1_url,
+    validate_pdata_id,
+)
 
 
 def test_build_nas1_url_for_removebg_variant():
@@ -48,3 +54,20 @@ def test_validate_pdata_id_rejects_bad_format():
 def test_validate_pdata_id_rejects_trailing_newline():
     with pytest.raises(InvalidPdataId):
         validate_pdata_id("00004338_7562cd0b-aad4-4383-a980-c0c52ada67d5\n")
+
+
+def test_detect_image_mime_recognizes_png():
+    assert _detect_image_mime(b"\x89PNG\r\n\x1a\n" + b"\x00" * 20) == "image/png"
+
+
+def test_detect_image_mime_recognizes_jpeg():
+    assert _detect_image_mime(b"\xff\xd8\xff" + b"\x00" * 20) == "image/jpeg"
+
+
+def test_detect_image_mime_recognizes_webp():
+    content = b"RIFF" + b"\x00" * 4 + b"WEBP" + b"\x00" * 20
+    assert _detect_image_mime(content) == "image/webp"
+
+
+def test_detect_image_mime_falls_back_for_unknown_bytes():
+    assert _detect_image_mime(b"not an image") == "application/octet-stream"
