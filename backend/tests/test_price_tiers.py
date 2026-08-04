@@ -1,3 +1,5 @@
+import pytest
+
 from app.services.price_tiers import PRICE_TIERS, tier_bounds, widen_tier_ranges
 
 
@@ -31,3 +33,13 @@ def test_widen_tier_ranges_expands_both_directions_and_clamps():
 def test_widen_tier_ranges_covers_all_ten_tiers_eventually():
     ranges = widen_tier_ranges(9)
     assert ranges[-1] == (0, None)
+
+
+def test_tier_bounds_rejects_negative_index():
+    with pytest.raises(ValueError):
+        tier_bounds(-1)
+
+
+def test_tier_bounds_rejects_out_of_range_index():
+    with pytest.raises(ValueError):
+        tier_bounds(10)

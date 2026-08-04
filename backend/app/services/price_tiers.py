@@ -13,6 +13,8 @@ PRICE_TIERS: list[tuple[str, int, int | None]] = [
 
 
 def tier_bounds(tier_index: int) -> tuple[int, int | None]:
+    if not 0 <= tier_index < len(PRICE_TIERS):
+        raise ValueError(f"tier_index out of range: {tier_index}")
     _, low, high = PRICE_TIERS[tier_index]
     return (low, high)
 
