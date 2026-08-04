@@ -14,14 +14,20 @@ def compute_price(
     tb_product_row: dict | None, daily_sales: list[dict]
 ) -> tuple[int, str] | None:
     """tb_product.price__original 우선, 없거나 0/null이면 v_daily_sale 평균단가.
-    둘 다 없으면 None (해당 SKU는 가격 캐시에서 건너뜀)."""
+    둘 다 없거나 계산 결과가 비정상(0 이하)이면 None (해당 SKU는 가격 캐시에서 건너뜀)."""
     if tb_product_row and tb_product_row.get("price__original"):
         return (int(tb_product_row["price__original"]), "tb_product")
 
-    total_amt = sum(row["sale__amt"] for row in daily_sales)
-    total_qty = sum(row["sales_qty"] for row in daily_sales)
+    total_amt = sum((row.get("sale__amt") or 0) for row in daily_sales)
+    total_qty = sum((row.get("sales_qty") or 0) for row in daily_sales)
     if total_qty > 0:
-        return (round(total_amt / total_qty), "v_daily_sale_calc")
+        price = round(total_amt / total_qty)
+        # v_daily_sale에 반품/환불로 인한 음수 qty/amt 행이 섞여 있을 수 있어
+        # (2026-08-04 확인, 실데이터), 순합이 양수라도 계산된 단가가 0 이하로
+        # 나올 수 있다 — 그런 값은 캐시하지 않고 건너뛴다(잘못된 가격을 사용자에게
+        # 노출하는 것보다 "가격 모름"이 낫다).
+        if price > 0:
+            return (price, "v_daily_sale_calc")
 
     return None
 
@@ -38,8 +44,8 @@ def run_sync() -> int:
         # 계획 문서의 sale__amt/sales_qty와 달라 별칭으로 맞춘다.
         sale_rows = pos_conn.execute(
             text(
-                'SELECT erp_goods_cd AS item_cd, sale_amt AS "sale__amt", '
-                'sale_qty AS "sales_qty" FROM v_daily_sale'
+                "SELECT erp_goods_cd AS item_cd, sale_amt AS sale__amt, "
+                "sale_qty AS sales_qty FROM v_daily_sale"
             )
         ).mappings().all()
 
@@ -49,6 +55,9 @@ def run_sync() -> int:
         sales_by_item.setdefault(r["item_cd"], []).append(dict(r))
 
     all_item_cds = set(products_by_item) | set(sales_by_item)
+    # ponytail: 델리스트된 와인의 캐시 행은 여기서 안 지운다 — POS 조회 실패로
+    # 일시적으로 빠진 것과 진짜 델리스트를 구분 못 해서, 지우는 게 더 위험할 수
+    # 있음. 필요해지면 별도 정리 배치로 처리.
 
     updated = 0
     session: Session = SessionLocal()
