@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.db import get_session
 from app.schemas import WineCard
 from app.services.pairing import infer_taste_target, score_by_pairing
-from app.services.price_tiers import tier_label
+from app.services.price_tiers import price_tier_for_amount, tier_label
 from app.services.recommend import find_with_fallback, pick_top_candidates, query_candidates
 from app.services.region_cache import region_cache
 
@@ -30,7 +30,7 @@ def _parse_json_field(raw: str | None) -> dict:
         return {}
 
 
-def _to_card(candidate: dict, price_tier: int) -> WineCard:
+def _to_card(candidate: dict) -> WineCard:
     variety = _parse_json_field(candidate.get("variety"))
     country = _parse_json_field(candidate.get("country"))
     place = _parse_json_field(candidate.get("place"))
@@ -47,7 +47,7 @@ def _to_card(candidate: dict, price_tier: int) -> WineCard:
         grape=variety.get("ko", "") or "품종 미상",
         type_label_kr=TYPE_LABEL_KR.get(wine_type, wine_type),
         price_krw=candidate["price_krw"],
-        price_desc=tier_label(price_tier),
+        price_desc=tier_label(price_tier_for_amount(candidate["price_krw"])),
         note=note[:80],
         persona_line=f"{candidate.get('nameKo', '이 와인')}, 지금 이 순간에 잘 어울려요",
         pdata_id=candidate.get("pdataId"),
@@ -89,9 +89,9 @@ def recommend(
         candidates = score_by_pairing(candidates, target)
         reason = PAIR_REASON_KR.get(wine_type, "잘 어울려요")
         top = pick_top_candidates(candidates, limit=1)[0]
-        card = _to_card(top, price_tier)
+        card = _to_card(top)
         card.persona_line = f"{card.wine_name}, {pairing_text}이랑 같이면 {reason}"
         return card
 
     top = pick_top_candidates(candidates, limit=1)[0]
-    return _to_card(top, price_tier)
+    return _to_card(top)

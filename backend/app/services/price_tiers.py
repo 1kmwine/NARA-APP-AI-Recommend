@@ -43,3 +43,13 @@ def widen_tier_ranges(tier_index: int) -> list[tuple[int, int | None]]:
             break
         widen += 1
     return ranges
+
+
+def price_tier_for_amount(price_krw: int) -> int:
+    """주어진 실제 가격이 속하는 티어 인덱스를 찾는다. price_desc를 요청받은 티어가
+    아니라 실제 후보의 가격 기준으로 표시하기 위해 씀(폴백으로 다른 티어 와인이
+    나왔을 때 라벨이 어긋나는 걸 막는다)."""
+    for i, (_, low, high) in enumerate(PRICE_TIERS):
+        if price_krw >= low and (high is None or price_krw <= high):
+            return i
+    raise ValueError(f"no tier matches price {price_krw}")

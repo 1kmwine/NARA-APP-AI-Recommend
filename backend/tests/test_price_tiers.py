@@ -1,6 +1,11 @@
 import pytest
 
-from app.services.price_tiers import PRICE_TIERS, tier_bounds, widen_tier_ranges
+from app.services.price_tiers import (
+    PRICE_TIERS,
+    price_tier_for_amount,
+    tier_bounds,
+    widen_tier_ranges,
+)
 
 
 def test_ten_tiers_defined():
@@ -43,3 +48,20 @@ def test_tier_bounds_rejects_negative_index():
 def test_tier_bounds_rejects_out_of_range_index():
     with pytest.raises(ValueError):
         tier_bounds(10)
+
+
+def test_price_tier_for_amount_finds_correct_tier():
+    assert price_tier_for_amount(5_000) == 0
+    assert price_tier_for_amount(45_000) == 3
+    assert price_tier_for_amount(68_000) == 4
+    assert price_tier_for_amount(15_000_000) == 9
+
+
+def test_price_tier_for_amount_boundary_values():
+    assert price_tier_for_amount(10_000) == 0
+    assert price_tier_for_amount(10_001) == 1
+
+
+def test_price_tier_for_amount_rejects_negative_price():
+    with pytest.raises(ValueError):
+        price_tier_for_amount(-1)

@@ -44,3 +44,40 @@ def test_recommend_returns_404_when_no_candidate_even_after_fallback():
             params={"price_tier": 3, "country_index": 0, "region_index": 0, "wine_type": "Red"},
         )
     assert response.status_code == 404
+
+
+def test_recommend_price_desc_reflects_actual_candidate_price_not_requested_tier():
+    """요청 티어(3="5만원대")에 후보가 없어서 폴백으로 다른 티어(68000원="7만원대")
+    후보가 나왔을 때, price_desc는 실제 후보 가격 기준이어야 한다."""
+    fallback_candidate = {
+        "itemCd": "XYZ789",
+        "nameKo": "폴백 와인",
+        "type": "Red",
+        "producer": "{}",
+        "variety": "{}",
+        "country": "{}",
+        "place": "{}",
+        "taste_raw": None,
+        "notes_taste_raw": None,
+        "tastingNote": None,
+        "desc1": None,
+        "pdataId": None,
+        "price_krw": 68_000,
+        "reviews": 0,
+        "wishes": 0,
+    }
+    # widen_tier_ranges(3) == [(30001,50000), (20001,70000), ...] — 68000은 두번째
+    # 범위(20001-70000)에 이미 들어가므로 첫 호출(정확한 티어)만 비고, 두번째 호출에서
+    # 바로 후보가 반환된다.
+    with patch(
+        "app.routers.recommend.query_candidates",
+        side_effect=[[], [fallback_candidate]],
+    ):
+        response = client.get(
+            "/api/recommend",
+            params={"price_tier": 3, "country_index": 0, "region_index": 0, "wine_type": "Red"},
+        )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["price_krw"] == 68_000
+    assert body["price_desc"] == "7만원대"
