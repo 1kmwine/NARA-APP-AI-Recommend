@@ -43,3 +43,17 @@ def build_nas1_url(pdata_id: str, variant: str, base_url: str, ssid: str) -> str
         }
     )
     return f"{base_url}?{query}"
+
+
+import httpx
+
+from app.config import settings
+
+
+async def fetch_image_bytes(pdata_id: str, variant: str) -> tuple[bytes, str]:
+    url = build_nas1_url(pdata_id, variant, settings.nas1_base_url, settings.nas1_share_ssid)
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(url)
+    response.raise_for_status()
+    content_type = response.headers.get("content-type", "application/octet-stream")
+    return response.content, content_type
