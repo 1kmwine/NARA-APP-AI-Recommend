@@ -2,6 +2,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 from app.services.pairing import (
+    NEUTRAL_TASTE,
     TasteVector,
     infer_taste_target,
     score_by_pairing,
@@ -51,3 +52,16 @@ def test_infer_taste_target_falls_back_to_neutral_on_bad_response(mock_call):
     mock_call.return_value = "이건 JSON이 아님"
     result = infer_taste_target("아무 음식")
     assert result == TasteVector(sweetness=2, acidity=2, body=2, tannin=2)
+
+
+def test_infer_taste_target_falls_back_to_neutral_when_call_raises():
+    with patch("app.services.pairing._call_anthropic", side_effect=RuntimeError("network down")):
+        result = infer_taste_target("아무 음식")
+    assert result == NEUTRAL_TASTE
+
+
+@patch("app.services.pairing._call_anthropic")
+def test_infer_taste_target_strips_markdown_code_fence(mock_call):
+    mock_call.return_value = '```json\n{"sweetness": 1, "acidity": 3, "body": 2, "tannin": 4}\n```'
+    result = infer_taste_target("매운 음식")
+    assert result == TasteVector(sweetness=1, acidity=3, body=2, tannin=4)

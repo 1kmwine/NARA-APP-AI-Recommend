@@ -71,8 +71,22 @@ def _call_anthropic(food_text: str) -> str:
     return message.content[0].text
 
 
+def _strip_code_fence(raw: str) -> str:
+    text = raw.strip()
+    if text.startswith("```"):
+        text = text.removeprefix("```json").removeprefix("```")
+        text = text.removesuffix("```")
+        text = text.strip()
+    return text
+
+
 def infer_taste_target(food_text: str) -> TasteVector:
-    raw = _call_anthropic(food_text)
+    try:
+        raw = _call_anthropic(food_text)
+    except Exception:
+        return NEUTRAL_TASTE
+
+    raw = _strip_code_fence(raw)
     try:
         data = json.loads(raw)
         return TasteVector(
