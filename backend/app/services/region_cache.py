@@ -60,7 +60,7 @@ class RegionCache:
 
     def get(self, session: Session) -> list[CountryRegions]:
         now = time.time()
-        if not self._order or now - self._fetched_at > TTL_SECONDS:
+        if self._fetched_at == 0.0 or now - self._fetched_at > TTL_SECONDS:
             rows = session.execute(
                 text("SELECT place, countryName FROM wine_info.integrated_item_info")
             ).all()
