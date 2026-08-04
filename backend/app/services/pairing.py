@@ -1,10 +1,13 @@
 import json
+import logging
 import math
 from dataclasses import dataclass
 
 from anthropic import Anthropic
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Wine Folly(winefolly.com) 페어링 방법론 요약(우리 말로 재정리, 원문 인용 아님) —
 # 음식의 6대 기본맛(짠맛/산미/단맛/쓴맛/지방/매운맛) 중 지배적 요소를 파악해
@@ -83,7 +86,8 @@ def _strip_code_fence(raw: str) -> str:
 def infer_taste_target(food_text: str) -> TasteVector:
     try:
         raw = _call_anthropic(food_text)
-    except Exception:
+    except Exception as e:
+        logger.warning("페어링 LLM 호출 실패: food_text=%s error=%s", food_text, e)
         return NEUTRAL_TASTE
 
     raw = _strip_code_fence(raw)
@@ -95,5 +99,6 @@ def infer_taste_target(food_text: str) -> TasteVector:
             body=int(data["body"]),
             tannin=int(data["tannin"]),
         )
-    except (json.JSONDecodeError, KeyError, ValueError, TypeError):
+    except (json.JSONDecodeError, KeyError, ValueError, TypeError) as e:
+        logger.warning("페어링 LLM 응답 파싱 실패: food_text=%s raw=%r error=%s", food_text, raw, e)
         return NEUTRAL_TASTE
