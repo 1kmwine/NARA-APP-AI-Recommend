@@ -17,6 +17,13 @@
   background: #EFE7D8;
   font-family: 'Manrope', sans-serif;
   color: #241C15;
+
+  --wine-radius-card: 28px;
+  --wine-radius-chip: 20px;
+  --wine-radius-button: 18px;
+  --wine-shadow-card: 0 20px 45px rgba(60, 40, 20, 0.14);
+  --wine-transition-fast: 0.12s;
+  --wine-transition-standard: 0.15s;
 }
 
 /* header */
@@ -87,7 +94,7 @@
   width: 100%;
   text-align: left;
   padding: 20px 26px;
-  border-radius: 18px;
+  border-radius: var(--wine-radius-button);
   border: 1.5px solid #E4D5BE;
   background: #FBF6EC;
   font: inherit;
@@ -95,7 +102,7 @@
   font-weight: 600;
   color: inherit;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--wine-transition-standard);
 }
 .option:hover {
   border-color: #D97756;
@@ -165,7 +172,7 @@
 .joyBtn {
   width: 52px;
   height: 52px;
-  border-radius: 18px;
+  border-radius: var(--wine-radius-button);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -174,7 +181,7 @@
   background: #FBF6EC;
   border: 1.5px solid #E4D5BE;
   cursor: pointer;
-  transition: transform 0.12s;
+  transition: transform var(--wine-transition-fast);
   padding: 0;
 }
 .joyBtn:active {
@@ -198,9 +205,9 @@
   width: 280px;
   position: relative;
   background: #FFFDF8;
-  border-radius: 28px;
+  border-radius: var(--wine-radius-card);
   padding: 20px;
-  box-shadow: 0 20px 45px rgba(60, 40, 20, 0.14);
+  box-shadow: var(--wine-shadow-card);
   animation: cardSwapIn 0.4s ease both;
 }
 .saveBtn {
@@ -246,7 +253,7 @@
   color: #241C15;
   cursor: pointer;
   z-index: 3;
-  transition: all 0.15s;
+  transition: all var(--wine-transition-standard);
   padding: 0;
 }
 .excludeBtn:hover {
@@ -372,7 +379,7 @@
 }
 .chip {
   padding: 5px 10px;
-  border-radius: 20px;
+  border-radius: var(--wine-radius-chip);
   font-size: 10.5px;
   font-weight: 700;
   background: #FBF6EC;
@@ -387,7 +394,7 @@
 .personaBox {
   margin-top: 10px;
   background: #FCEEE4;
-  border-radius: 20px;
+  border-radius: var(--wine-radius-chip);
   padding: 10px 12px;
 }
 .personaLine {
