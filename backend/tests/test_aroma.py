@@ -1,6 +1,8 @@
 import json
 from unittest.mock import MagicMock
 
+from sqlalchemy import text
+
 from app.services.aroma import classify_aroma_tags, fetch_aroma_tags
 
 
@@ -67,3 +69,23 @@ def test_fetch_aroma_tags_skips_malformed_json():
     result = fetch_aroma_tags(fake_engine, ["P1", "P2"])
 
     assert result == {"P2": ["Rose"]}
+
+
+def test_fetch_aroma_tags_query_compiles_and_expands_in_clause_against_real_engine():
+    from sqlalchemy import create_engine
+
+    engine = create_engine("sqlite:///:memory:")
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE tb_pdata (pdata_id TEXT, aroma TEXT)"))
+        conn.execute(
+            text("INSERT INTO tb_pdata (pdata_id, aroma) VALUES (:pdata_id, :aroma)"),
+            [
+                {"pdata_id": "P1", "aroma": json.dumps(["Cherry"])},
+                {"pdata_id": "P2", "aroma": json.dumps(["Violet"])},
+                {"pdata_id": "P3", "aroma": json.dumps(["Should not be selected"])},
+            ],
+        )
+
+    result = fetch_aroma_tags(engine, ["P1", "P2"])
+
+    assert result == {"P1": ["Cherry"], "P2": ["Violet"]}
