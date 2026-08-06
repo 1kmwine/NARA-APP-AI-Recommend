@@ -37,3 +37,11 @@ def test_verify_story_mention_returns_none_on_bad_json():
     with patch("app.services.bracket_content._call_gemini_text", return_value="이건 JSON 아님"):
         result = verify_story_mention("아무 텍스트")
     assert result is None
+
+
+def test_verify_story_mention_returns_none_when_json_is_not_an_object():
+    # responseMimeType: application/json only guarantees valid JSON, not an object shape —
+    # Gemini could legally return `true`, `null`, a bare string, etc. This must not crash.
+    with patch("app.services.bracket_content._call_gemini_text", return_value="true"):
+        result = verify_story_mention("아무 텍스트")
+    assert result is None

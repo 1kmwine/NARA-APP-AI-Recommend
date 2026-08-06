@@ -73,10 +73,9 @@ def verify_story_mention(article_text: str) -> str | None:
     raw = _strip_code_fence(raw)
     try:
         data = json.loads(raw)
-    except json.JSONDecodeError as e:
+        if not data.get("has_mention"):
+            return None
+        return data.get("quote") or None
+    except (json.JSONDecodeError, AttributeError, TypeError) as e:
         logger.warning("스토리 언급 판별 응답 파싱 실패: raw=%r error=%s", raw, e)
         return None
-
-    if not data.get("has_mention"):
-        return None
-    return data.get("quote") or None
