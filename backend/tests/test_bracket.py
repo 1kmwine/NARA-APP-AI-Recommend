@@ -1,4 +1,6 @@
 from app.services.bracket import (
+    build_bracket,
+    build_candidate_pool,
     exclude_used,
     pick_acidity_match,
     pick_aroma_match,
@@ -213,3 +215,88 @@ def test_pick_philosophy_match_skips_when_summarize_fails():
     assert result is not None
     (card_a, _), (card_b, _) = result
     assert {card_a["itemCd"], card_b["itemCd"]} == {"B", "C"}
+
+
+def test_build_candidate_pool_expands_regions_until_min_size_met():
+    from app.services.region_cache import CountryRegions, RegionCount
+
+    order = [
+        CountryRegions(
+            country="France",
+            sku_count=10,
+            regions=[
+                RegionCount(label="보르도", sku_count=1),
+                RegionCount(label="부르고뉴", sku_count=9),
+            ],
+        )
+    ]
+
+    call_log = []
+
+    def fake_search(country: str, region: str, price_min: int, price_max):
+        call_log.append(region)
+        if region == "보르도":
+            return [{"itemCd": "A", "brandName": "b1"}]
+        return [{"itemCd": f"BG{i}", "brandName": f"bg{i}"} for i in range(10)]
+
+    pool = build_candidate_pool(
+        order=order, country_index=0, region_index=0, min_size=8, search_fn=fake_search
+    )
+
+    assert call_log == ["보르도", "부르고뉴"]
+    assert len(pool) == 11  # 보르도 1개 + 부르고뉴 10개
+
+
+def test_build_candidate_pool_dedupes_by_item_cd_across_regions():
+    from app.services.region_cache import CountryRegions, RegionCount
+
+    order = [
+        CountryRegions(
+            country="France",
+            sku_count=5,
+            regions=[RegionCount(label="R1", sku_count=1), RegionCount(label="R2", sku_count=1)],
+        )
+    ]
+
+    def fake_search(country: str, region: str, price_min: int, price_max):
+        return [{"itemCd": "DUP", "brandName": "b"}]
+
+    pool = build_candidate_pool(
+        order=order, country_index=0, region_index=0, min_size=8, search_fn=fake_search
+    )
+
+    assert len(pool) == 1
+
+
+def test_build_bracket_assembles_up_to_four_matches():
+    pool = [
+        {"itemCd": "A", "brandName": "b1", "pdataId": "P1", "taste": {"acidity": 5}, "price_krw": 30000},
+        {"itemCd": "B", "brandName": "b2", "pdataId": "P2", "taste": {"acidity": 0}, "price_krw": 30000},
+        {"itemCd": "C", "brandName": "b3", "pdataId": "P3", "taste": {"acidity": 3}, "price_krw": 30000},
+        {"itemCd": "D", "brandName": "b4", "pdataId": "P4", "taste": {"acidity": 3}, "price_krw": 30000},
+        {"itemCd": "E", "brandName": "b5", "pdataId": None, "taste": {"acidity": 3}, "price_krw": 30000},
+        {"itemCd": "F", "brandName": "b6", "pdataId": None, "taste": {"acidity": 3}, "price_krw": 30000},
+        {"itemCd": "G", "brandName": "b7", "pdataId": None, "taste": {"acidity": 3}, "price_krw": 30000},
+        {"itemCd": "H", "brandName": "b8", "pdataId": None, "taste": {"acidity": 3}, "price_krw": 30000},
+    ]
+    aroma_by_pdata_id = {"P3": ["Cherry"], "P4": ["Violet"]}
+    # story axis consumes E(verified via b5's article) + F(unverified fallback),
+    # leaving G/H (both with intros) for the philosophy axis — pick_philosophy_match
+    # needs 2 distinct branded intros to return a match, and pick_story_match already
+    # fills both its slots from whatever's left in the pool.
+    articles_by_brand = {"b5": [{"title": "t", "excerpt": "레이건 대통령 만찬", "url": "u5"}]}
+    intro_by_brand = {"b7": "소개글1", "b8": "소개글2"}
+
+    result = build_bracket(
+        pool=pool,
+        aroma_by_pdata_id=aroma_by_pdata_id,
+        articles_by_brand=articles_by_brand,
+        intro_by_brand=intro_by_brand,
+        verify_fn=lambda t: "검증된 인용구" if "대통령" in t else None,
+        summarize_fn=lambda t: "요약: " + t,
+    )
+
+    axes = [m.axis for m in result.matches]
+    assert axes == ["acidity", "aroma", "story", "philosophy"]
+    acidity_match = result.matches[0]
+    assert {c.item_cd for c in acidity_match.cards} == {"A", "B"}

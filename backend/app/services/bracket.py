@@ -1,6 +1,9 @@
 from typing import Callable
 
+from app.routers.recommend import _to_card
+from app.schemas import BracketCard, BracketMatch, BracketResponse
 from app.services.aroma import classify_aroma_tags
+from app.services.region_cache import CountryRegions
 
 
 def _acidity(candidate: dict) -> int:
@@ -88,6 +91,38 @@ def pick_story_match(
 PhilosophySummarizeFn = Callable[[str], str | None]
 
 
+PoolSearchFn = Callable[[str, str, int, int | None], list[dict]]
+
+
+def build_candidate_pool(
+    order: list[CountryRegions],
+    country_index: int,
+    region_index: int,
+    min_size: int,
+    search_fn: PoolSearchFn,
+    price_min: int = 0,
+    price_max: int | None = None,
+) -> list[dict]:
+    """사용자가 고른 지역부터 시작해서, 후보가 min_size를 채울 때까지 같은 타입
+    내 다른 지역을 순서대로 추가한다(region_cache 순서 재사용 — SKU 많은 지역
+    순). item_cd 기준 dedupe."""
+    country_entry = order[country_index % len(order)]
+    n_regions = len(country_entry.regions)
+    seen: set[str] = set()
+    pool: list[dict] = []
+    for offset in range(n_regions):
+        region_entry = country_entry.regions[(region_index + offset) % n_regions]
+        results = search_fn(country_entry.country, region_entry.label, price_min, price_max)
+        for r in results:
+            if r["itemCd"] in seen:
+                continue
+            seen.add(r["itemCd"])
+            pool.append(r)
+        if len(pool) >= min_size:
+            break
+    return pool
+
+
 def pick_philosophy_match(
     pool: list[dict], intro_by_brand: dict[str, str], summarize_fn: PhilosophySummarizeFn
 ) -> tuple[tuple[dict, str], tuple[dict, str]] | None:
@@ -110,3 +145,94 @@ def pick_philosophy_match(
         if len(found) == 2:
             return found[0], found[1]
     return None
+
+
+def _to_bracket_card(candidate: dict, axis_label: str) -> BracketCard:
+    base = _to_card(candidate)
+    return BracketCard(**base.model_dump(), axis_label=axis_label)
+
+
+def build_bracket(
+    pool: list[dict],
+    aroma_by_pdata_id: dict[str, list[str]],
+    articles_by_brand: dict[str, list[dict]],
+    intro_by_brand: dict[str, str],
+    verify_fn: StoryVerifyFn,
+    summarize_fn: PhilosophySummarizeFn,
+) -> BracketResponse:
+    """4경기를 순서대로 조립한다. 각 경기는 이미 쓰인 item_cd를 제외한 풀에서
+    후보를 뽑는다 — 경기 하나가 후보를 못 찾으면(None) 그 경기는 대진표에서
+    빠진다(4경기 미만이 될 수 있음, 프론트가 이 경우도 처리해야 함)."""
+    matches: list[BracketMatch] = []
+    used: set[str] = set()
+    remaining = pool
+
+    acidity_pair = pick_acidity_match(remaining)
+    if acidity_pair:
+        high, low = acidity_pair
+        used.update([high["itemCd"], low["itemCd"]])
+        matches.append(
+            BracketMatch(
+                round="quarterfinal",
+                axis="acidity",
+                cards=[
+                    _to_bracket_card(high, f"산도 {(high.get('taste') or {}).get('acidity', 2)}/5"),
+                    _to_bracket_card(low, f"산도 {(low.get('taste') or {}).get('acidity', 2)}/5"),
+                ],
+            )
+        )
+    remaining = exclude_used(remaining, used)
+
+    aroma_pair = pick_aroma_match(remaining, aroma_by_pdata_id)
+    if aroma_pair:
+        fruit, floral = aroma_pair
+        used.update([fruit["itemCd"], floral["itemCd"]])
+        matches.append(
+            BracketMatch(
+                round="quarterfinal",
+                axis="aroma",
+                cards=[
+                    _to_bracket_card(fruit, "과일향 위주"),
+                    _to_bracket_card(floral, "꽃·2,3차향 위주"),
+                ],
+            )
+        )
+    remaining = exclude_used(remaining, used)
+
+    story_pair = pick_story_match(remaining, articles_by_brand, verify_fn)
+    if story_pair:
+        (card_a, quote_a, url_a), (card_b, quote_b, url_b) = story_pair
+        used.update([card_a["itemCd"], card_b["itemCd"]])
+
+        def _story_label(quote: str | None, url: str | None) -> str:
+            if quote:
+                return f"{quote} (출처: {url})"
+            return "이 와인만의 알려진 이야기는 아직 없어요"
+
+        matches.append(
+            BracketMatch(
+                round="quarterfinal",
+                axis="story",
+                cards=[
+                    _to_bracket_card(card_a, _story_label(quote_a, url_a)),
+                    _to_bracket_card(card_b, _story_label(quote_b, url_b)),
+                ],
+            )
+        )
+    remaining = exclude_used(remaining, used)
+
+    philosophy_pair = pick_philosophy_match(remaining, intro_by_brand, summarize_fn)
+    if philosophy_pair:
+        (card_a, summary_a), (card_b, summary_b) = philosophy_pair
+        matches.append(
+            BracketMatch(
+                round="quarterfinal",
+                axis="philosophy",
+                cards=[
+                    _to_bracket_card(card_a, summary_a),
+                    _to_bracket_card(card_b, summary_b),
+                ],
+            )
+        )
+
+    return BracketResponse(matches=matches)
