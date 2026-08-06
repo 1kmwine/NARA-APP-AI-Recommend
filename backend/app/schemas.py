@@ -21,3 +21,17 @@ class WineCard(BaseModel):
     persona_line: str
     pdata_id: str | None
     taste: WineTaste
+
+
+class BracketCard(WineCard):
+    axis_label: str
+
+
+class BracketMatch(BaseModel):
+    round: str
+    axis: str
+    cards: list[BracketCard]
+
+
+class BracketResponse(BaseModel):
+    matches: list[BracketMatch]
