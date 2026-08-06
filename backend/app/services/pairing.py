@@ -3,11 +3,14 @@ import logging
 import math
 from dataclasses import dataclass
 
-from anthropic import Anthropic
+import httpx
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+GEMINI_MODEL = "gemini-2.0-flash"
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
 
 # Wine Folly(winefolly.com) 페어링 방법론 요약(우리 말로 재정리, 원문 인용 아님) —
 # 음식의 6대 기본맛(짠맛/산미/단맛/쓴맛/지방/매운맛) 중 지배적 요소를 파악해
@@ -47,31 +50,56 @@ def taste_distance(a: TasteVector, b: TasteVector) -> float:
     )
 
 
+def _taste_from_dict(taste: dict | None) -> TasteVector:
+    if not taste:
+        return NEUTRAL_TASTE
+    return TasteVector(
+        sweetness=taste.get("sweetness", 2),
+        acidity=taste.get("acidity", 2),
+        body=taste.get("body", 2),
+        tannin=taste.get("tannin", 2),
+    )
+
+
 def score_by_pairing(candidates: list[dict], target: TasteVector) -> list[dict]:
-    def to_vector(taste: dict | None) -> TasteVector:
-        if not taste:
-            return NEUTRAL_TASTE
-        return TasteVector(
-            sweetness=taste.get("sweetness", 2),
-            acidity=taste.get("acidity", 2),
-            body=taste.get("body", 2),
-            tannin=taste.get("tannin", 2),
-        )
-
     return sorted(
-        candidates, key=lambda c: taste_distance(to_vector(c.get("taste")), target)
+        candidates, key=lambda c: taste_distance(_taste_from_dict(c.get("taste")), target)
     )
 
 
-def _call_anthropic(food_text: str) -> str:
-    client = Anthropic(api_key=settings.anthropic_api_key)
-    message = client.messages.create(
-        model="claude-sonnet-5",
-        max_tokens=100,
-        system=PAIRING_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": food_text}],
+def score_by_preference(
+    candidates: list[dict], liked: TasteVector | None, disliked: TasteVector | None
+) -> list[dict]:
+    """♡/X로 쌓인 취향 벡터로 후보를 재정렬한다. liked에 가깝고 disliked에서 먼
+    후보가 앞으로 온다. 둘 다 없으면(신규 사용자) 원래 순서 그대로 둔다."""
+    if liked is None and disliked is None:
+        return candidates
+
+    def score(c: dict) -> float:
+        v = _taste_from_dict(c.get("taste"))
+        s = 0.0
+        if liked is not None:
+            s += taste_distance(v, liked)
+        if disliked is not None:
+            s -= taste_distance(v, disliked)
+        return s
+
+    return sorted(candidates, key=score)
+
+
+def _call_gemini(food_text: str) -> str:
+    response = httpx.post(
+        GEMINI_URL,
+        params={"key": settings.gemini_api_key},
+        json={
+            "systemInstruction": {"parts": [{"text": PAIRING_SYSTEM_PROMPT}]},
+            "contents": [{"parts": [{"text": food_text}]}],
+            "generationConfig": {"responseMimeType": "application/json"},
+        },
+        timeout=10,
     )
-    return message.content[0].text
+    response.raise_for_status()
+    return response.json()["candidates"][0]["content"]["parts"][0]["text"]
 
 
 def _strip_code_fence(raw: str) -> str:
@@ -85,9 +113,9 @@ def _strip_code_fence(raw: str) -> str:
 
 def infer_taste_target(food_text: str) -> TasteVector:
     try:
-        raw = _call_anthropic(food_text)
+        raw = _call_gemini(food_text)
     except Exception as e:
-        logger.warning("페어링 LLM 호출 실패: food_text=%s error=%s", food_text, e)
+        logger.warning("페어링 LLM(Gemini) 호출 실패: food_text=%s error=%s", food_text, e)
         return NEUTRAL_TASTE
 
     raw = _strip_code_fence(raw)

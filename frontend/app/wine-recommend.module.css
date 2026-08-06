@@ -14,34 +14,51 @@
 .page {
   min-height: 100vh;
   width: 100%;
-  background: #EFE7D8;
-  font-family: 'Manrope', sans-serif;
-  color: #241C15;
+  background: var(--color-bg);
+  font-family: var(--font-sans);
+  color: var(--color-text);
 
-  --wine-radius-card: 28px;
-  --wine-radius-chip: 20px;
-  --wine-radius-button: 18px;
-  --wine-shadow-card: 0 20px 45px rgba(60, 40, 20, 0.14);
-  --wine-transition-fast: 0.12s;
-  --wine-transition-standard: 0.15s;
+  /* 이 블록 고유 accent — design-system.css의 --accent(기본 블루)를
+     와인 브랜드 톤으로 override. 이 값만 바꾸면 파생 색이 전부 따라간다. */
+  --accent: #D97756;
 }
 
 /* header */
 .header {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: baseline;
-  justify-content: space-between;
   padding: 28px 48px 0;
 }
 .brand {
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--font-serif-display);
+  font-weight: 600;
   font-size: 26px;
   letter-spacing: 0.01em;
+  text-align: center;
+  justify-self: center;
 }
 .tagline {
   font-size: 13px;
-  color: #8A7F6E;
+  color: var(--color-text-faint);
   font-weight: 600;
+}
+.headerRight {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  justify-self: end;
+}
+.backToStart {
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  border-bottom: 1.5px solid var(--color-text-muted);
+  cursor: pointer;
+  padding: 0 0 2px;
 }
 
 /* intro */
@@ -58,28 +75,46 @@
 }
 .dot {
   height: 4px;
-  border-radius: 2px;
+  border-radius: var(--radius-sm);
   flex: 1;
-  background: #EFE3D0;
-  transition: background 0.3s;
+  background: var(--color-surface-muted);
+  transition: background var(--transition-standard);
 }
 .dotActive {
   flex: 2.5;
-  background: #D97756;
+  background: var(--accent);
 }
 .stepCard {
   animation: cardSwapIn 0.45s ease both;
+}
+.stepHeader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.stepBack {
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.stepBack:hover {
+  color: var(--accent);
 }
 .stepLabel {
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: #B0724F;
+  color: color-mix(in srgb, var(--accent) 72%, #000);
   text-transform: uppercase;
-  margin-bottom: 16px;
 }
 .question {
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--font-serif-display);
   font-size: 48px;
   line-height: 1.12;
   margin-bottom: 40px;
@@ -94,19 +129,19 @@
   width: 100%;
   text-align: left;
   padding: 20px 26px;
-  border-radius: var(--wine-radius-button);
-  border: 1.5px solid #E4D5BE;
-  background: #FBF6EC;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-input);
+  background: var(--color-surface);
   font: inherit;
   font-size: 18px;
   font-weight: 600;
   color: inherit;
   cursor: pointer;
-  transition: all var(--wine-transition-standard);
+  transition: all var(--transition-standard);
 }
 .option:hover {
-  border-color: #D97756;
-  background: #FCEEE4;
+  border-color: var(--color-border-hover);
+  background: var(--color-surface-tint);
   transform: translateX(4px);
 }
 .option:active {
@@ -117,11 +152,11 @@
 .stage {
   position: relative;
   display: grid;
-  grid-template-columns: 150px 1fr 150px;
-  grid-template-rows: 120px 1fr 120px;
+  grid-template-columns: 148px 1fr 148px;
+  grid-template-rows: 110px 1fr 110px;
   align-items: center;
-  min-height: 680px;
-  padding: 10px 32px 50px;
+  min-height: 760px;
+  padding: 10px 12px 50px;
   max-width: 1200px;
   margin: 0 auto;
 }
@@ -165,24 +200,49 @@
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  gap: 28px;
+  gap: 20px;
   flex-wrap: wrap;
 }
 
+.pairingSelect {
+  font: inherit;
+  font-size: 12.5px;
+  padding: 8px 10px;
+  width: 128px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-input);
+  background: var(--color-surface);
+  color: inherit;
+}
+.pairingCustomInput {
+  font: inherit;
+  font-size: 12.5px;
+  padding: 8px 10px;
+  width: 108px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-input);
+  background: var(--color-surface);
+  color: inherit;
+}
+
 .joyBtn {
-  width: 52px;
-  height: 52px;
-  border-radius: var(--wine-radius-button);
+  width: 46px;
+  height: 46px;
+  border-radius: var(--radius-pill);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 20px;
   font-weight: 800;
-  background: #FBF6EC;
-  border: 1.5px solid #E4D5BE;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
   cursor: pointer;
-  transition: transform var(--wine-transition-fast);
+  transition: border-color var(--transition-standard), background var(--transition-standard), transform var(--transition-fast);
   padding: 0;
+}
+.joyBtn:hover {
+  border-color: var(--color-border-input);
+  background: var(--color-surface-muted);
 }
 .joyBtn:active {
   transform: scale(0.9);
@@ -191,24 +251,30 @@
   opacity: 0.35;
   cursor: not-allowed;
 }
-.joyAccent { color: #D97756; }
-.joyRegion { color: #6E2A46; }
-.joyPairing { color: #6B7A4A; }
+.joyAccent, .joyRegion, .joyPairing { color: var(--accent); }
 .joyLabel {
   font-size: 12.5px;
   font-weight: 700;
   text-align: center;
+  color: var(--color-text-muted);
 }
 
 /* card */
 .card {
-  width: 280px;
+  width: clamp(230px, 32vw, 300px);
   position: relative;
-  background: #FFFDF8;
-  border-radius: var(--wine-radius-card);
-  padding: 20px;
-  box-shadow: var(--wine-shadow-card);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  padding: 24px 22px 30px;
   animation: cardSwapIn 0.4s ease both;
+  cursor: pointer;
+  transition: border-color var(--transition-standard), box-shadow var(--transition-standard), transform var(--transition-standard);
+}
+.card:hover {
+  border-color: var(--color-border-hover);
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
 }
 .saveBtn {
   position: absolute;
@@ -216,25 +282,26 @@
   left: 14px;
   width: 36px;
   height: 36px;
-  border-radius: 50%;
-  border: none;
-  background: #FFFFFF;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   z-index: 3;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   font-size: 16px;
-  color: #8A7F6E;
+  color: var(--color-text-muted);
   padding: 0;
+  transition: border-color var(--transition-standard), background var(--transition-standard);
 }
 .saveBtn:active {
   transform: scale(0.88);
 }
 .saveBtnActive {
-  background: #FCEEE4;
-  color: #B0392C;
+  background: color-mix(in srgb, var(--accent) 16%, #fff);
+  color: color-mix(in srgb, var(--accent) 72%, #000);
+  border-color: transparent;
 }
 .excludeBtn {
   position: absolute;
@@ -242,105 +309,88 @@
   right: 14px;
   width: 32px;
   height: 32px;
-  border-radius: 50%;
-  border: none;
-  background: #F2ECE2;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 13px;
   font-weight: 800;
-  color: #241C15;
+  color: var(--color-text);
   cursor: pointer;
   z-index: 3;
-  transition: all var(--wine-transition-standard);
+  transition: all var(--transition-standard);
   padding: 0;
 }
 .excludeBtn:hover {
-  background: #FCEEE4;
-  color: #B0392C;
+  background: var(--color-surface-muted);
+  border-color: var(--color-border-input);
 }
 .excludeBtn:active {
   transform: scale(0.85) rotate(90deg);
 }
 
 .bottleWrap {
-  height: 156px;
+  height: 320px;
   position: relative;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   margin-top: 18px;
 }
 .bottleAnim {
   animation: bottleFloat 4.5s ease-in-out infinite;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
-.cap {
-  width: 30px;
-  height: 14px;
-  margin: 0 auto;
-  border-radius: 5px 5px 0 0;
-}
-.neck {
-  width: 19px;
-  height: 40px;
-  margin: 0 auto;
-  box-shadow: inset -4px 0 7px rgba(0, 0, 0, 0.25);
-}
-.shoulder {
-  width: 0;
-  height: 0;
-  margin: 0 auto;
-  border-left: 17px solid transparent;
-  border-right: 17px solid transparent;
-  border-bottom: 22px solid;
-}
-.bottleBody {
-  width: 94px;
-  height: 106px;
-  margin: -1px auto 0;
-  border-radius: 9px 9px 14px 14px;
-  position: relative;
-  box-shadow: inset -12px 0 20px rgba(0, 0, 0, 0.18), 0 12px 16px rgba(0, 0, 0, 0.14);
+.bottleImg {
+  max-height: 100%;
+  max-width: 100%;
+  width: auto;
+  object-fit: contain;
 }
 .labelPatch {
-  position: absolute;
-  top: 38px;
-  left: 18px;
-  right: 18px;
-  bottom: 22px;
-  background: #FFFCF5;
-  border-radius: 4px;
+  width: 200px;
+  height: 280px;
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  gap: 6px;
+}
+.labelPatch.hidden {
+  display: none;
 }
 .labelRegion {
-  font-size: 8px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.05em;
-  color: #B0724F;
+  color: color-mix(in srgb, var(--accent) 72%, #000);
   text-transform: uppercase;
 }
 .labelGrape {
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--font-serif-display);
   font-style: italic;
-  font-size: 12.5px;
+  font-size: 15px;
   line-height: 1.15;
   text-align: center;
+  padding: 0 12px;
 }
 
 .wineName {
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--font-serif-display);
   font-size: 21px;
   text-align: center;
   margin-top: 10px;
 }
 .wineMeta {
   font-size: 11.5px;
-  color: #8A7F6E;
+  color: var(--color-text-faint);
   margin-top: 2px;
   font-weight: 500;
   text-align: center;
@@ -353,20 +403,20 @@
   margin-top: 10px;
 }
 .price {
-  font-family: 'Instrument Serif', serif;
+  font-family: var(--font-serif-display);
   font-size: 28px;
-  color: #D97756;
+  color: var(--accent);
 }
 .priceDesc {
   font-size: 11.5px;
-  color: #8A7F6E;
+  color: var(--color-text-faint);
   font-weight: 600;
 }
 .note {
   text-align: center;
   font-size: 12.5px;
   line-height: 1.5;
-  color: #4a3f33;
+  color: var(--color-text-secondary);
   margin-top: 8px;
   min-height: 38px;
 }
@@ -379,28 +429,26 @@
 }
 .chip {
   padding: 5px 10px;
-  border-radius: var(--wine-radius-chip);
+  border-radius: var(--radius-sm);
   font-size: 10.5px;
   font-weight: 700;
-  background: #FBF6EC;
-  color: #8A7F6E;
-  border: 1.5px solid #E4D5BE;
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
 }
 .chipActive {
-  background: #241C15;
-  color: #FBF6EC;
-  border-color: #241C15;
+  background: var(--color-text);
+  color: var(--color-surface);
 }
 .personaBox {
   margin-top: 10px;
-  background: #FCEEE4;
-  border-radius: var(--wine-radius-chip);
+  background: var(--color-surface-tint);
+  border-radius: var(--radius-lg);
   padding: 10px 12px;
 }
 .personaLine {
   font-size: 11px;
   line-height: 1.45;
-  color: #6E2A46;
+  color: color-mix(in srgb, var(--accent) 72%, #000);
   font-weight: 600;
 }
 
@@ -414,10 +462,10 @@
   font: inherit;
   font-size: 13px;
   font-weight: 700;
-  color: #8A7F6E;
+  color: var(--color-text-muted);
   background: none;
   border: none;
-  border-bottom: 1.5px solid #8A7F6E;
+  border-bottom: 1.5px solid var(--color-text-muted);
   cursor: pointer;
   padding: 0 0 2px;
 }

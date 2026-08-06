@@ -63,6 +63,8 @@ def run_sync() -> int:
     session: Session = SessionLocal()
     try:
         for item_cd in all_item_cds:
+            if item_cd is None:
+                continue
             priced = compute_price(products_by_item.get(item_cd), sales_by_item.get(item_cd, []))
             if priced is None:
                 continue

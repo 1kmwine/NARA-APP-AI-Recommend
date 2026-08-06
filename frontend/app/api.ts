@@ -1,5 +1,12 @@
 export type WineType = "Red" | "White" | "Sparkling";
 
+export interface WineTaste {
+  sweetness: number;
+  acidity: number;
+  body: number;
+  tannin: number;
+}
+
 export interface WineCard {
   item_cd: string;
   wine_name: string;
@@ -12,6 +19,7 @@ export interface WineCard {
   note: string;
   persona_line: string;
   pdata_id: string | null;
+  taste: WineTaste;
 }
 
 export interface RecommendParams {
@@ -20,6 +28,14 @@ export interface RecommendParams {
   regionIndex: number;
   wineType: WineType;
   pairingText?: string;
+  slot?: number;
+  excludeItemCds?: string[];
+  likedTaste?: WineTaste | null;
+  dislikedTaste?: WineTaste | null;
+}
+
+function tasteParam(t: WineTaste): string {
+  return `${t.sweetness},${t.acidity},${t.body},${t.tannin}`;
 }
 
 export async function fetchRecommendation(params: RecommendParams): Promise<WineCard | null> {
@@ -28,8 +44,14 @@ export async function fetchRecommendation(params: RecommendParams): Promise<Wine
     country_index: String(params.countryIndex),
     region_index: String(params.regionIndex),
     wine_type: params.wineType,
+    slot: String(params.slot ?? 0),
   });
   if (params.pairingText) search.set("pairing_text", params.pairingText);
+  if (params.excludeItemCds && params.excludeItemCds.length > 0) {
+    search.set("exclude", params.excludeItemCds.join(","));
+  }
+  if (params.likedTaste) search.set("liked_taste", tasteParam(params.likedTaste));
+  if (params.dislikedTaste) search.set("disliked_taste", tasteParam(params.dislikedTaste));
 
   const response = await fetch(`/api/recommend?${search.toString()}`);
   if (response.status === 404) return null;

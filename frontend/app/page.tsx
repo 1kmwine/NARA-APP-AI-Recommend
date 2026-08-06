@@ -1,15 +1,35 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import styles from "./wine-recommend.module.css";
 import { fetchRecommendation, imageUrl, type WineCard, type WineType } from "./api";
+import {
+  addExcludedWine,
+  addLikedWine,
+  getDislikedTasteAverage,
+  getExcludedItemCds,
+  getLikedTasteAverage,
+  isLiked,
+  removeLikedWine,
+} from "./preferences";
 
-const COMPANION_TYPE: Record<WineType, WineType> = { Red: "White", White: "Sparkling", Sparkling: "Red" };
-const TIER_CAP_COLORS = [
-  "#D8CDBB", "#D8CDBB", "#C9A24B", "#C9A24B", "#C9A24B",
-  "#C9A24B", "#7A1F2B", "#7A1F2B", "#7A1F2B", "#7A1F2B",
+const REAL_FOODS = [
+  { id: "삼겹살", label: "삼겹살" },
+  { id: "치킨", label: "치킨" },
+  { id: "스테이크", label: "스테이크" },
+  { id: "파스타", label: "파스타" },
+  { id: "초밥", label: "초밥" },
+  { id: "치즈", label: "치즈 플래터" },
+  { id: "매운탕", label: "매운탕" },
+  { id: "피자", label: "피자" },
+  { id: "디저트", label: "디저트" },
 ];
-const GLASS_COLOR: Record<WineType, string> = { Red: "#5C1F2E", White: "#C9BC79", Sparkling: "#D8C687" };
+const FOODS = [...REAL_FOODS, { id: "custom", label: "직접 입력하기" }];
+const WINE_DETAIL_BASE = "http://192.168.47.105/NID/wine-info/view.php";
+
+type CardId = "a" | "b";
+const CARD_IDS: CardId[] = ["a", "b"];
 
 interface CardState {
   visible: boolean;
@@ -46,6 +66,14 @@ const INTRO_STEPS: { question: string; options: { id: string | number; label: st
   },
 ];
 
+function slotForCard(id: CardId): number {
+  return id === "a" ? 0 : 1;
+}
+
+function wineDetailUrl(itemCd: string): string {
+  return `${WINE_DETAIL_BASE}?itemCd=${encodeURIComponent(itemCd)}&cat=wine`;
+}
+
 export default function Home() {
   const [isIntro, setIsIntro] = useState(true);
   const [introStep, setIntroStep] = useState(0);
@@ -54,12 +82,13 @@ export default function Home() {
   const [countryIndex, setCountryIndex] = useState(0);
   const [tierIndex, setTierIndex] = useState(0);
   const [pairingText, setPairingText] = useState("");
-  const [pairingInput, setPairingInput] = useState("");
-  const [cards, setCards] = useState<Record<"a" | "b", CardState>>({
+  const [pairingChoice, setPairingChoice] = useState("");
+  const [pairingCustom, setPairingCustom] = useState("");
+  const [cards, setCards] = useState<Record<CardId, CardState>>({
     a: { visible: true, saved: false, swap: 0 },
     b: { visible: true, saved: false, swap: 0 },
   });
-  const [cardData, setCardData] = useState<Record<"a" | "b", WineCard | null>>({ a: null, b: null });
+  const [cardData, setCardData] = useState<Record<CardId, WineCard | null>>({ a: null, b: null });
   const [loading, setLoading] = useState(false);
 
   function selectIntro(stepIdx: number, value: string | number) {
@@ -68,21 +97,59 @@ export default function Home() {
     if (stepIdx < 2) {
       setIntroStep(stepIdx + 1);
     } else {
+      const pick = REAL_FOODS[Math.floor(Math.random() * REAL_FOODS.length)];
+      setPairingChoice(pick.id);
+      setPairingText(pick.id);
       setIsIntro(false);
     }
+  }
+
+  function goToStart() {
+    setIsIntro(true);
+    setIntroStep(0);
+    setTierIndex(0);
+    setRegionIndex(0);
+    setCountryIndex(0);
+    setPairingText("");
+    setPairingChoice("");
+    setPairingCustom("");
+    setCards({
+      a: { visible: true, saved: false, swap: 0 },
+      b: { visible: true, saved: false, swap: 0 },
+    });
   }
 
   useEffect(() => {
     if (isIntro) return;
     let ignore = false;
     setLoading(true);
-    const typeB = COMPANION_TYPE[typeAnswer];
-    Promise.all([
-      fetchRecommendation({ priceTier: tierIndex, countryIndex, regionIndex, wineType: typeAnswer, pairingText }),
-      fetchRecommendation({ priceTier: tierIndex, countryIndex, regionIndex, wineType: typeB, pairingText }),
-    ])
+    const excludeItemCds = getExcludedItemCds();
+    const likedTaste = getLikedTasteAverage();
+    const dislikedTaste = getDislikedTasteAverage();
+    Promise.all(
+      CARD_IDS.map((id) =>
+        fetchRecommendation({
+          priceTier: tierIndex,
+          countryIndex,
+          regionIndex,
+          wineType: typeAnswer,
+          pairingText,
+          slot: slotForCard(id),
+          excludeItemCds,
+          likedTaste,
+          dislikedTaste,
+        })
+      )
+    )
       .then(([a, b]) => {
-        if (!ignore) setCardData({ a, b });
+        if (!ignore) {
+          setCardData({ a, b });
+          // 이 와인 예전에 찜한 적 있으면 하트가 눌린 상태로 보여야 함
+          setCards((c) => ({
+            a: { ...c.a, saved: a ? isLiked(a.item_cd) : false },
+            b: { ...c.b, saved: b ? isLiked(b.item_cd) : false },
+          }));
+        }
       })
       .catch(() => {
         if (!ignore) setCardData({ a: null, b: null });
@@ -96,7 +163,13 @@ export default function Home() {
   }, [isIntro, typeAnswer, countryIndex, regionIndex, tierIndex, pairingText]);
 
   function bumpAll() {
-    setCards((c) => ({ a: { ...c.a, swap: c.a.swap + 1 }, b: { ...c.b, swap: c.b.swap + 1 } }));
+    // 방향키(가격/지역/국가/페어링)를 누르면 새로 추천을 받는 거니까, 이전에 배제(X)
+    // 했던 자리도 다시 채워서 2개로 보여준다 — 배제는 "이번 조합에서 이 와인만 빼줘"
+    // 정도의 일시적 액션이지, 자리 자체를 계속 비워두라는 뜻은 아니다.
+    setCards((c) => ({
+      a: { ...c.a, visible: true, swap: c.a.swap + 1 },
+      b: { ...c.b, visible: true, swap: c.b.swap + 1 },
+    }));
   }
   function priceUp() {
     if (tierIndex >= 9) return;
@@ -117,14 +190,43 @@ export default function Home() {
     setRegionIndex(0);
     bumpAll();
   }
-  function submitPairing() {
-    setPairingText(pairingInput.trim());
+  function submitCustom() {
+    setPairingText(pairingCustom.trim());
     bumpAll();
   }
-  function toggleSave(id: "a" | "b") {
-    setCards((c) => ({ ...c, [id]: { ...c[id], saved: !c[id].saved } }));
+  function selectPairing(value: string) {
+    setPairingChoice(value);
+    if (value !== "custom") {
+      setPairingText(value);
+      bumpAll();
+    }
   }
-  function exclude(id: "a" | "b") {
+  function confirmPairing() {
+    if (pairingChoice === "custom") {
+      submitCustom();
+      return;
+    }
+    const idx = REAL_FOODS.findIndex((f) => f.id === pairingChoice);
+    const next = REAL_FOODS[(idx + 1 + REAL_FOODS.length) % REAL_FOODS.length];
+    setPairingChoice(next.id);
+    setPairingText(next.id);
+    bumpAll();
+  }
+  function toggleSave(id: CardId) {
+    const card = cardData[id];
+    const willSave = !cards[id].saved;
+    if (card) {
+      // AI가 "좋아하는 취향" 학습하는 신호 — 하트한 와인 목록 + 취향 평균에 반영됨
+      if (willSave) addLikedWine(card);
+      else removeLikedWine(card.item_cd);
+    }
+    setCards((c) => ({ ...c, [id]: { ...c[id], saved: willSave } }));
+  }
+  function exclude(id: CardId) {
+    const card = cardData[id];
+    // AI가 "싫어하는 취향" 학습하는 신호 — 이 와인은 다음부터 아예 후보에서 빠지고,
+    // 취향 평균에도 반영돼서 비슷한 와인의 순위가 낮아진다
+    if (card) addExcludedWine(card.item_cd, card.taste);
     setCards((c) => ({ ...c, [id]: { ...c[id], visible: false } }));
   }
   function resetCards() {
@@ -134,14 +236,25 @@ export default function Home() {
     }));
   }
 
-  const visibleCardIds = (["a", "b"] as const).filter((id) => cards[id].visible && cardData[id]);
+  const visibleCardIds = CARD_IDS.filter((id) => cards[id].visible && cardData[id]);
   const anyHidden = !(cards.a.visible && cards.b.visible);
 
   return (
     <div className={styles.page}>
       <div className={styles.header}>
-        <div className={styles.brand}>SIP.</div>
-        <div className={styles.tagline}>AI 소믈리에가 지금 이 순간에 맞는 와인을 골라줘요</div>
+        <div />
+        <div className={styles.brand}>AI 와인 추천</div>
+        <div className={styles.headerRight}>
+          <div className={styles.tagline}>AI 소믈리에가 지금 이 순간에 맞는 와인을 골라줘요</div>
+          <Link href="/liked" className={styles.backToStart}>
+            찜한 와인
+          </Link>
+          {!isIntro && (
+            <button type="button" onClick={goToStart} className={styles.backToStart}>
+              처음으로
+            </button>
+          )}
+        </div>
       </div>
 
       {isIntro ? (
@@ -152,7 +265,14 @@ export default function Home() {
             ))}
           </div>
           <div key={introStep} className={styles.stepCard}>
-            <div className={styles.stepLabel}>Step {introStep + 1} / 3</div>
+            <div className={styles.stepHeader}>
+              {introStep > 0 && (
+                <button type="button" onClick={() => setIntroStep((s) => s - 1)} className={styles.stepBack}>
+                  &#8592; 이전
+                </button>
+              )}
+              <div className={styles.stepLabel}>Step {introStep + 1} / 3</div>
+            </div>
             <div className={styles.question}>{INTRO_STEPS[introStep].question}</div>
             <div className={styles.options}>
               {INTRO_STEPS[introStep].options.map((opt) => (
@@ -187,28 +307,37 @@ export default function Home() {
               {loading && <div className={styles.note}>추천 찾는 중...</div>}
               {!loading && visibleCardIds.map((id) => {
                 const card = cardData[id]!;
-                const type = id === "a" ? typeAnswer : COMPANION_TYPE[typeAnswer];
                 return (
-                  <div key={`${id}-${cards[id].swap}`} className={styles.card}>
-                    <button type="button" onClick={() => toggleSave(id)} className={cards[id].saved ? `${styles.saveBtn} ${styles.saveBtnActive}` : styles.saveBtn}>
+                  <div
+                    key={`${id}-${cards[id].swap}`}
+                    className={styles.card}
+                    onClick={() => window.open(wineDetailUrl(card.item_cd), "_blank", "noopener,noreferrer")}
+                  >
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); toggleSave(id); }}
+                      className={cards[id].saved ? `${styles.saveBtn} ${styles.saveBtnActive}` : styles.saveBtn}
+                    >
                       &#9825;
                     </button>
-                    <button type="button" onClick={() => exclude(id)} className={styles.excludeBtn}>&#10005;</button>
+                    <button type="button" onClick={(e) => { e.stopPropagation(); exclude(id); }} className={styles.excludeBtn}>&#10005;</button>
 
                     <div className={styles.bottleWrap}>
                       <div className={styles.bottleAnim}>
-                        <div className={styles.cap} style={{ background: TIER_CAP_COLORS[tierIndex] }} />
-                        <div className={styles.neck} style={{ background: GLASS_COLOR[type] }} />
-                        <div className={styles.shoulder} style={{ borderBottomColor: GLASS_COLOR[type] }} />
-                        <div className={styles.bottleBody} style={{ background: GLASS_COLOR[type] }}>
-                          {imageUrl(card.pdata_id) ? (
-                            <img src={imageUrl(card.pdata_id)!} alt={card.wine_name} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "contain" }} />
-                          ) : (
-                            <div className={styles.labelPatch}>
-                              <div className={styles.labelRegion}>{card.region}</div>
-                              <div className={styles.labelGrape}>{card.grape}</div>
-                            </div>
-                          )}
+                        {imageUrl(card.pdata_id) && (
+                          <img
+                            src={imageUrl(card.pdata_id)!}
+                            alt={card.wine_name}
+                            className={styles.bottleImg}
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                              e.currentTarget.nextElementSibling?.classList.remove(styles.hidden);
+                            }}
+                          />
+                        )}
+                        <div className={imageUrl(card.pdata_id) ? `${styles.labelPatch} ${styles.hidden}` : styles.labelPatch}>
+                          <div className={styles.labelRegion}>{card.region}</div>
+                          <div className={styles.labelGrape}>{card.grape}</div>
                         </div>
                       </div>
                     </div>
@@ -232,16 +361,26 @@ export default function Home() {
             </div>
 
             <div className={styles.pairingWrap}>
-              <input
-                type="text"
-                value={pairingInput}
-                onChange={(e) => setPairingInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && submitPairing()}
-                placeholder="같이 먹을 음식"
-                className={styles.option}
-                style={{ fontSize: 13, padding: "8px 12px", width: 120 }}
-              />
-              <button type="button" onClick={submitPairing} className={styles.joyBtn}>
+              <select
+                value={pairingChoice}
+                onChange={(e) => selectPairing(e.target.value)}
+                className={styles.pairingSelect}
+              >
+                {FOODS.map((food) => (
+                  <option key={food.id} value={food.id}>{food.label}</option>
+                ))}
+              </select>
+              {pairingChoice === "custom" && (
+                <input
+                  type="text"
+                  value={pairingCustom}
+                  onChange={(e) => setPairingCustom(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && submitCustom()}
+                  placeholder="직접 입력"
+                  className={styles.pairingCustomInput}
+                />
+              )}
+              <button type="button" onClick={confirmPairing} className={styles.joyBtn}>
                 <span className={styles.joyPairing}>&#9654;</span>
               </button>
               <div className={`${styles.joyLabel} ${styles.joyPairing}`}>페어링<br />검색</div>

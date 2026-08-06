@@ -45,11 +45,13 @@ def widen_tier_ranges(tier_index: int) -> list[tuple[int, int | None]]:
     return ranges
 
 
-def price_tier_for_amount(price_krw: int) -> int:
-    """주어진 실제 가격이 속하는 티어 인덱스를 찾는다. price_desc를 요청받은 티어가
-    아니라 실제 후보의 가격 기준으로 표시하기 위해 씀(폴백으로 다른 티어 와인이
-    나왔을 때 라벨이 어긋나는 걸 막는다)."""
-    for i, (_, low, high) in enumerate(PRICE_TIERS):
-        if price_krw >= low and (high is None or price_krw <= high):
-            return i
-    raise ValueError(f"no tier matches price {price_krw}")
+def format_price_desc(price_krw: int) -> str:
+    """카드에 실제로 보여줄 가격 설명. 검색용 PRICE_TIERS 버킷(폭이 들쭉날쭉, 예:
+    3만원대 버킷이 30,001~50,000원까지 걸침)의 라벨을 그대로 쓰면 47,426원 와인이
+    "5만원대"로 잘못 보인다(사용자 확인, 2026-08-04) — 버킷 라벨과 무관하게 실제
+    가격에서 만원 단위를 바로 뽑아 "4만원대"처럼 정직하게 표시한다."""
+    if price_krw <= 10_000:
+        return "1만원 이하"
+    if price_krw >= 10_000_000:
+        return "1000만원 이상"
+    return f"{price_krw // 10_000}만원대"

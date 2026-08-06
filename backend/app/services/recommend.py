@@ -78,8 +78,16 @@ def query_candidates(
         },
     ).mappings().all()
 
-    return [
-        dict(r)
-        for r in rows
-        if _matches_country_region(r.get("place"), r.get("countryName"), country, region)
-    ]
+    # wine_notes LEFT JOIN이 brandName 기준 1:N이라 같은 itemCd가 여러 행으로
+    # 뻥튀기될 수 있다 — itemCd당 첫 매칭 행만 남긴다(같은 와인이 다른 노트로
+    # 중복 후보 취급되는 걸 막기 위함).
+    seen: set[str] = set()
+    result = []
+    for r in rows:
+        if not _matches_country_region(r.get("place"), r.get("countryName"), country, region):
+            continue
+        if r["itemCd"] in seen:
+            continue
+        seen.add(r["itemCd"])
+        result.append(dict(r))
+    return result

@@ -54,19 +54,32 @@ def build_region_order(rows: list[tuple[str | None, str | None]]) -> list[Countr
 
 
 class RegionCache:
-    def __init__(self) -> None:
-        self._order: list[CountryRegions] = []
-        self._fetched_at: float = 0.0
+    """와인 타입별로 지역 순서를 따로 캐싱한다 — 전체 SKU 기준으로 지역을 정렬하면
+    (예: 보르도가 스파클링 SKU는 1개뿐인데도) 타입과 무관하게 1순위로 뜨는 문제가
+    있어서, wine_type을 넘기면 그 타입 SKU만으로 다시 집계·정렬한다."""
 
-    def get(self, session: Session) -> list[CountryRegions]:
+    def __init__(self) -> None:
+        self._cache: dict[str | None, tuple[list[CountryRegions], float]] = {}
+
+    def get(self, session: Session, wine_type: str | None = None) -> list[CountryRegions]:
         now = time.time()
-        if self._fetched_at == 0.0 or now - self._fetched_at > TTL_SECONDS:
-            rows = session.execute(
-                text("SELECT place, countryName FROM wine_info.integrated_item_info")
-            ).all()
-            self._order = build_region_order([(r[0], r[1]) for r in rows])
-            self._fetched_at = now
-        return self._order
+        cached = self._cache.get(wine_type)
+        if cached is None or now - cached[1] > TTL_SECONDS:
+            if wine_type:
+                rows = session.execute(
+                    text(
+                        "SELECT place, countryName FROM wine_info.integrated_item_info"
+                        " WHERE type = :wine_type"
+                    ),
+                    {"wine_type": wine_type},
+                ).all()
+            else:
+                rows = session.execute(
+                    text("SELECT place, countryName FROM wine_info.integrated_item_info")
+                ).all()
+            order = build_region_order([(r[0], r[1]) for r in rows])
+            self._cache[wine_type] = (order, now)
+        return self._cache[wine_type][0]
 
 
 region_cache = RegionCache()

@@ -2,7 +2,7 @@ import pytest
 
 from app.services.price_tiers import (
     PRICE_TIERS,
-    price_tier_for_amount,
+    format_price_desc,
     tier_bounds,
     widen_tier_ranges,
 )
@@ -50,18 +50,17 @@ def test_tier_bounds_rejects_out_of_range_index():
         tier_bounds(10)
 
 
-def test_price_tier_for_amount_finds_correct_tier():
-    assert price_tier_for_amount(5_000) == 0
-    assert price_tier_for_amount(45_000) == 3
-    assert price_tier_for_amount(68_000) == 4
-    assert price_tier_for_amount(15_000_000) == 9
+def test_format_price_desc_uses_actual_leading_manwon_digit():
+    # 47,426원은 검색 버킷("5만원대", 30001~50000)과 무관하게 "4만원대"로 보여야 함
+    assert format_price_desc(47_426) == "4만원대"
+    assert format_price_desc(68_000) == "6만원대"
 
 
-def test_price_tier_for_amount_boundary_values():
-    assert price_tier_for_amount(10_000) == 0
-    assert price_tier_for_amount(10_001) == 1
+def test_format_price_desc_low_boundary():
+    assert format_price_desc(10_000) == "1만원 이하"
+    assert format_price_desc(10_001) == "1만원대"
 
 
-def test_price_tier_for_amount_rejects_negative_price():
-    with pytest.raises(ValueError):
-        price_tier_for_amount(-1)
+def test_format_price_desc_high_boundary():
+    assert format_price_desc(9_999_999) == "999만원대"
+    assert format_price_desc(10_000_000) == "1000만원 이상"

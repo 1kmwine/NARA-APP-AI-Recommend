@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     nas1_base_url: str = "http://el.naracellar.com/share.cgi"
     nas1_share_ssid: str
 
-    anthropic_api_key: str = ""
+    gemini_api_key: str = ""
 
 
 settings = Settings()
