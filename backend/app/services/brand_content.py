@@ -8,6 +8,9 @@ def fetch_brand_articles(session: Session, brand_names: list[str]) -> dict[str, 
     (호출 측이 "이 브랜드는 스토리 없음"으로 취급하면 됨)."""
     if not brand_names:
         return {}
+    # wine_article_brands가 같은 (article_id, brand_name) 쌍을 중복으로 갖고 있으면 같은 기사가
+    # 브랜드의 스토리 목록에 두 번 나올 수 있다 — 지금은 그런 중복이 없다고 가정한다(2026-08-06
+    # 확인 시점 기준). 실제로 중복이 발견되면 이 함수에서 dedupe를 추가할 것.
     stmt = text(
         """
         SELECT b.brand_name, a.title, a.excerpt, a.external_url
@@ -26,7 +29,7 @@ def fetch_brand_articles(session: Session, brand_names: list[str]) -> dict[str, 
     return result
 
 
-def fetch_brand_intro(session: Session, brand_names: list[str]) -> dict[str, str]:
+def fetch_brand_intro(session: Session, brand_names: list[str]) -> dict[str, str | None]:
     """brand_intro.introText를 브랜드명 기준으로 조회한다."""
     if not brand_names:
         return {}

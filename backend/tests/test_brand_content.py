@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import bindparam, create_engine, text
 from sqlalchemy.orm import sessionmaker
 
 from app.services.brand_content import fetch_brand_articles, fetch_brand_intro
@@ -83,3 +83,55 @@ def test_bindparam_expanding_actually_expands_in_clause_on_real_engine():
         session.close()
 
     assert {row["brandName"] for row in rows} == {"브랜드1", "브랜드2"}
+
+
+def test_fetch_brand_articles_join_actually_works_on_real_engine():
+    """mock 테스트는 JOIN 조건(a.id = b.article_id)이 실제로 맞물리는지 검증하지 못한다.
+    (wine_info. 스키마 프리픽스는 SQLite가 못 읽으므로 여기선 무프리픽스 테이블에 쿼리를
+    복제해서 검증한다 — 위 bindparam 테스트와 같은 이유)"""
+    engine = create_engine("sqlite:///:memory:")
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE wine_articles (id INTEGER, title TEXT, excerpt TEXT, external_url TEXT)"))
+        conn.execute(text("CREATE TABLE wine_article_brands (article_id INTEGER, brand_name TEXT)"))
+        conn.execute(
+            text("INSERT INTO wine_articles (id, title, excerpt, external_url) VALUES (:id, :title, :excerpt, :url)"),
+            [
+                {"id": 1, "title": "t1", "excerpt": "e1", "url": "u1"},
+                {"id": 2, "title": "t2", "excerpt": "e2", "url": "u2"},
+                {"id": 3, "title": "t3", "excerpt": "e3", "url": "u3"},
+            ],
+        )
+        conn.execute(
+            text("INSERT INTO wine_article_brands (article_id, brand_name) VALUES (:article_id, :brand_name)"),
+            [
+                {"article_id": 1, "brand_name": "브랜드1"},
+                {"article_id": 2, "brand_name": "브랜드2"},
+                {"article_id": 3, "brand_name": "브랜드3"},  # not requested, should not appear
+            ],
+        )
+
+    stmt = text(
+        """
+        SELECT b.brand_name, a.title, a.excerpt, a.external_url
+        FROM wine_article_brands b
+        JOIN wine_articles a ON a.id = b.article_id
+        WHERE b.brand_name IN :brand_names
+        """
+    ).bindparams(bindparam("brand_names", expanding=True))
+
+    Session = sessionmaker(bind=engine)
+    session = Session()
+    try:
+        rows = session.execute(stmt, {"brand_names": ["브랜드1", "브랜드2"]}).mappings().all()
+    finally:
+        session.close()
+
+    result: dict[str, list[dict]] = {}
+    for row in rows:
+        result.setdefault(row["brand_name"], []).append(
+            {"title": row["title"], "excerpt": row["excerpt"], "url": row["external_url"]}
+        )
+
+    assert set(result.keys()) == {"브랜드1", "브랜드2"}
+    assert result["브랜드1"][0]["title"] == "t1"
+    assert result["브랜드2"][0]["title"] == "t2"
