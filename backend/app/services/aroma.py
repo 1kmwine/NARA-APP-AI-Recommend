@@ -1,4 +1,8 @@
+import json
 from typing import Literal
+
+from sqlalchemy import text
+from sqlalchemy.engine import Engine
 
 # tb_pdata.aroma에 실제로 나오는 영어 태그(2026-08-06 샘플 확인) 기준 분류.
 # 과일류(1차 향)는 fruit, 꽃/오크/숙성/향신료 등 2·3차 향은 floral_tertiary.
@@ -33,3 +37,26 @@ def classify_aroma_tags(tags: list[str]) -> Aroma:
     if floral_count > fruit_count:
         return "floral_tertiary"
     return "fruit"
+
+
+def fetch_aroma_tags(pos_engine: Engine, pdata_ids: list[str]) -> dict[str, list[str]]:
+    """pos.tb_pdata.aroma를 pdata_id 목록으로 한 번에 조회한다. aroma가 JSON 배열이
+    아니면(파싱 실패) 그 pdata_id는 결과에서 빠진다 — 호출 측이 "이 후보는 아로마
+    정보 없음"으로 취급하면 된다."""
+    if not pdata_ids:
+        return {}
+    with pos_engine.connect() as conn:
+        rows = conn.execute(
+            text("SELECT pdata_id, aroma FROM tb_pdata WHERE pdata_id IN :pdata_ids").bindparams(
+                pdata_ids=tuple(pdata_ids)
+            )
+        ).mappings().all()
+    result: dict[str, list[str]] = {}
+    for row in rows:
+        try:
+            tags = json.loads(row["aroma"])
+        except (json.JSONDecodeError, TypeError):
+            continue
+        if isinstance(tags, list):
+            result[row["pdata_id"]] = tags
+    return result
