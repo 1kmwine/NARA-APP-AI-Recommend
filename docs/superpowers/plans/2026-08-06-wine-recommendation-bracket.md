@@ -1092,13 +1092,19 @@ def test_pick_story_match_picks_two_distinct_brands_with_verified_mentions():
     (card_a, quote_a, url_a), (card_b, quote_b, url_b) = result
     assert card_a["itemCd"] == "A"
     assert card_b["itemCd"] == "B"
-    assert quote_a.startswith("검증된 인용구")
+    assert quote_a is not None and quote_a.startswith("검증된 인용구")
     assert url_a == "u1"
     assert url_b == "u2"
 
 
-def test_pick_story_match_returns_none_when_fewer_than_two_brands_verified():
-    pool = [{"itemCd": "A", "brandName": "브랜드1"}, {"itemCd": "B", "brandName": "브랜드2"}]
+def test_pick_story_match_fills_remaining_slot_with_unverified_candidate():
+    """검증된 언급이 1개뿐이면, 남은 자리는 브랜드만 다른 후보로 채우고 quote/url은
+    None으로 둔다 — 없는 이야기를 지어내지 않되, 경기는 항상 2장으로 채운다."""
+    pool = [
+        {"itemCd": "A", "brandName": "브랜드1"},
+        {"itemCd": "B", "brandName": "브랜드2"},
+        {"itemCd": "C", "brandName": "브랜드3"},
+    ]
     articles_by_brand = {
         "브랜드1": [{"title": "t1", "excerpt": "레이건 대통령 만찬", "url": "u1"}],
         "브랜드2": [{"title": "t2", "excerpt": "그냥 홍보문구", "url": "u2"}],
@@ -1107,11 +1113,30 @@ def test_pick_story_match_returns_none_when_fewer_than_two_brands_verified():
     def fake_verify(text: str) -> str | None:
         return "인용구" if "대통령" in text else None
 
-    assert pick_story_match(pool, articles_by_brand, verify_fn=fake_verify) is None
+    result = pick_story_match(pool, articles_by_brand, verify_fn=fake_verify)
+
+    assert result is not None
+    (card_a, quote_a, url_a), (card_b, quote_b, url_b) = result
+    assert card_a["itemCd"] == "A"
+    assert quote_a == "인용구"
+    assert url_a == "u1"
+    assert card_b["itemCd"] == "B"
+    assert quote_b is None
+    assert url_b is None
 
 
-def test_pick_story_match_skips_brands_without_articles():
-    pool = [{"itemCd": "A", "brandName": "기사없는브랜드"}]
+def test_pick_story_match_all_unverified_still_fills_two_slots():
+    pool = [{"itemCd": "A", "brandName": "브랜드1"}, {"itemCd": "B", "brandName": "브랜드2"}]
+    result = pick_story_match(pool, {}, verify_fn=lambda t: "인용구")
+    assert result is not None
+    (card_a, quote_a, _), (card_b, quote_b, _) = result
+    assert {card_a["itemCd"], card_b["itemCd"]} == {"A", "B"}
+    assert quote_a is None
+    assert quote_b is None
+
+
+def test_pick_story_match_returns_none_when_fewer_than_two_distinct_brands_in_pool():
+    pool = [{"itemCd": "A", "brandName": "브랜드1"}, {"itemCd": "C", "brandName": "브랜드1"}]
     result = pick_story_match(pool, {}, verify_fn=lambda t: "인용구")
     assert result is None
 ```
@@ -1131,11 +1156,13 @@ StoryVerifyFn = Callable[[str], str | None]
 
 def pick_story_match(
     pool: list[dict], articles_by_brand: dict[str, list[dict]], verify_fn: StoryVerifyFn
-) -> tuple[tuple[dict, str, str], tuple[dict, str, str]] | None:
-    """기사가 있는 브랜드 중 실제 인물/행사 언급이 검증된 후보 2개(서로 다른
-    브랜드)를 찾는다. 각 결과는 (카드, 인용구, 출처URL) 튜플. 2개를 못 채우면
-    None(3경기는 이번 브라켓에서 스킵된다는 뜻 — 호출 측이 대체 로직 적용)."""
-    found: list[tuple[dict, str, str]] = []
+) -> tuple[tuple[dict, str | None, str | None], tuple[dict, str | None, str | None]] | None:
+    """기사가 있는 브랜드 중 실제 인물/행사 언급이 검증된 후보를 우선으로 찾는다.
+    검증된 후보가 2개 미만이면, 브랜드만 다른 나머지 후보로 남은 자리를 채운다
+    (quote/url은 None — 없는 이야기를 지어내지 않는다, 대신 경기 자체는 후보만
+    있으면 항상 채운다). 서로 다른 브랜드가 풀에 2개 미만이면 그때만 None(경기
+    자체를 못 만듦)."""
+    verified: list[tuple[dict, str, str]] = []
     seen_brands: set[str] = set()
     for candidate in pool:
         brand = candidate.get("brandName")
@@ -1147,11 +1174,24 @@ def pick_story_match(
         quote = verify_fn(articles[0]["excerpt"] or articles[0]["title"])
         if quote is None:
             continue
-        found.append((candidate, quote, articles[0]["url"]))
+        verified.append((candidate, quote, articles[0]["url"]))
         seen_brands.add(brand)
-        if len(found) == 2:
-            return found[0], found[1]
-    return None
+        if len(verified) == 2:
+            return verified[0], verified[1]
+
+    fallback: list[tuple[dict, str | None, str | None]] = list(verified)
+    for candidate in pool:
+        brand = candidate.get("brandName")
+        if not brand or brand in seen_brands:
+            continue
+        fallback.append((candidate, None, None))
+        seen_brands.add(brand)
+        if len(fallback) == 2:
+            break
+
+    if len(fallback) < 2:
+        return None
+    return fallback[0], fallback[1]
 ```
 
 - [ ] **Step 3: 테스트 통과 확인**
@@ -1511,13 +1551,19 @@ def build_bracket(
     if story_pair:
         (card_a, quote_a, url_a), (card_b, quote_b, url_b) = story_pair
         used.update([card_a["itemCd"], card_b["itemCd"]])
+
+        def _story_label(quote: str | None, url: str | None) -> str:
+            if quote:
+                return f"{quote} (출처: {url})"
+            return "이 와인만의 알려진 이야기는 아직 없어요"
+
         matches.append(
             BracketMatch(
                 round="quarterfinal",
                 axis="story",
                 cards=[
-                    _to_bracket_card(card_a, f"{quote_a} (출처: {url_a})"),
-                    _to_bracket_card(card_b, f"{quote_b} (출처: {url_b})"),
+                    _to_bracket_card(card_a, _story_label(quote_a, url_a)),
+                    _to_bracket_card(card_b, _story_label(quote_b, url_b)),
                 ],
             )
         )
@@ -2509,16 +2555,10 @@ Expected: frontend 200, bracket 200(또는 후보 부족 시 404 — 그때는 �
 
 - **스펙 커버리지**: 설계 문서의 5개 섹션(전체 흐름/4경기 구성/기술구조/후보부족 처리/에러
   폴백) 전부 Task로 매핑됨 — 흐름(Task 11-13), 4경기(Task 2-9), 기술구조(Task 6,7,9,10),
-  지역확장(Task 9 Step1-4), 3경기 폴백(Task 9의 build_bracket이 story_pair=None이면 그
-  경기를 자연스럽게 스킵 — "다른 두 후보로 대체" 대신 "경기 자체를 스킵"으로 단순화했음,
-  아래 참고).
-- **설계 문서와의 차이 1건**: 설계 문서는 3경기 매칭 실패 시 "다른 두 후보(브랜드만 다름)로
-  대체, 유명인 문구 없이 일반 소개만"이라고 했는데, 이 계획은 "그 경기 자체를 스킵"으로
-  구현했다. 이유: "유명인 문구 없이 일반 소개만"이면 결국 4경기(철학 문구)와 내용이 겹치게
-  되어 대비 축이 사라진다 — 사용자가 원한 "각 경기가 뚜렷한 축으로 대비"라는 목표에 안 맞음.
-  경기 자체가 준다는 건 이미 준결승/결승 구성 로직(`useBracket`)이 홀수/짝수 상관없이
-  처리하게 만들어놨으니 기술적으로도 자연스럽다. **이 판단이 맞는지는 실행 시작 전에
-  사용자에게 확인이 필요하다.**
+  지역확장(Task 9 Step1-4), 3경기 폴백(Task 8의 `pick_story_match`가 검증된 언급이 2개 미만이면
+  브랜드만 다른 후보로 남은 자리를 채움 — quote/url은 None, `build_bracket`이 그 경우 "이
+  와인만의 알려진 이야기는 아직 없어요"로 표시. 설계 문서 원안대로 4경기를 항상 채우는 쪽으로
+  확정, 사용자 확인 완료 — 2026-08-06).
 - **placeholder 스캔**: "TBD"/"나중에" 패턴 없음, 모든 스텝에 실제 코드 포함.
 - **타입 일관성**: `BracketCard`(스키마)와 `BracketCard`(프론트 interface)가 필드명 동일
   (`item_cd`/`axis_label` snake_case로 통일, 프론트도 API 응답 그대로 받아 씀 — camelCase
