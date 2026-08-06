@@ -11,6 +11,9 @@ def fetch_brand_articles(session: Session, brand_names: list[str]) -> dict[str, 
     # wine_article_brands가 같은 (article_id, brand_name) 쌍을 중복으로 갖고 있으면 같은 기사가
     # 브랜드의 스토리 목록에 두 번 나올 수 있다 — 지금은 그런 중복이 없다고 가정한다(2026-08-06
     # 확인 시점 기준). 실제로 중복이 발견되면 이 함수에서 dedupe를 추가할 것.
+    # 아래 JOIN은 raw text()에 "wine_info." 스키마 프리픽스가 박혀 있어 schema_translate_map으로
+    # 가로챌 수 없다(문자열 그대로 컴파일되어 SQLite에 "wine_info.xxx" 테이블명으로 전달됨 —
+    # recommend.py의 query_candidates와 같은 처지). 이 함수는 SQL 어댑터라 단위테스트 대상 아님.
     stmt = text(
         """
         SELECT b.brand_name, a.title, a.excerpt, a.external_url
