@@ -143,6 +143,28 @@ def test_pick_story_match_all_unverified_still_fills_two_slots():
     assert quote_b is None
 
 
+def test_pick_story_match_calls_verify_fn_at_most_once_per_brand():
+    pool = [
+        {"itemCd": "A", "brandName": "브랜드1"},
+        {"itemCd": "A2", "brandName": "브랜드1"},  # same brand, second item
+        {"itemCd": "B", "brandName": "브랜드2"},
+    ]
+    articles_by_brand = {
+        "브랜드1": [{"title": "t1", "excerpt": "그냥 홍보문구", "url": "u1"}],
+        "브랜드2": [{"title": "t2", "excerpt": "그냥 홍보문구2", "url": "u2"}],
+    }
+    call_count = {"n": 0}
+
+    def counting_verify(text: str) -> str | None:
+        call_count["n"] += 1
+        return None  # never verifies, forces fallback path
+
+    result = pick_story_match(pool, articles_by_brand, verify_fn=counting_verify)
+
+    assert result is not None
+    assert call_count["n"] == 2  # once for 브랜드1, once for 브랜드2 — NOT 3 times
+
+
 def test_pick_story_match_returns_none_when_fewer_than_two_distinct_brands_in_pool():
     pool = [{"itemCd": "A", "brandName": "브랜드1"}, {"itemCd": "C", "brandName": "브랜드1"}]
     result = pick_story_match(pool, {}, verify_fn=lambda t: "인용구")

@@ -54,29 +54,29 @@ def pick_story_match(
     있으면 항상 채운다). 서로 다른 브랜드가 풀에 2개 미만이면 그때만 None(경기
     자체를 못 만듦)."""
     verified: list[tuple[dict, str, str]] = []
-    seen_brands: set[str] = set()
+    tried_brands: set[str] = set()
+    unverified_candidates: list[dict] = []
     for candidate in pool:
         brand = candidate.get("brandName")
-        if not brand or brand in seen_brands:
+        if not brand or brand in tried_brands:
             continue
         articles = articles_by_brand.get(brand)
         if not articles:
+            unverified_candidates.append(candidate)
+            tried_brands.add(brand)
             continue
+        tried_brands.add(brand)
         quote = verify_fn(articles[0]["excerpt"] or articles[0]["title"])
         if quote is None:
+            unverified_candidates.append(candidate)
             continue
         verified.append((candidate, quote, articles[0]["url"]))
-        seen_brands.add(brand)
         if len(verified) == 2:
             return verified[0], verified[1]
 
     fallback: list[tuple[dict, str | None, str | None]] = list(verified)
-    for candidate in pool:
-        brand = candidate.get("brandName")
-        if not brand or brand in seen_brands:
-            continue
+    for candidate in unverified_candidates:
         fallback.append((candidate, None, None))
-        seen_brands.add(brand)
         if len(fallback) == 2:
             break
 
