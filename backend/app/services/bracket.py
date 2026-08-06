@@ -1,3 +1,5 @@
+from typing import Callable
+
 from app.services.aroma import classify_aroma_tags
 
 
@@ -38,3 +40,73 @@ def pick_aroma_match(pool: list[dict], aroma_by_pdata_id: dict[str, list[str]]) 
 
 def exclude_used(pool: list[dict], used_item_cds: set[str]) -> list[dict]:
     return [c for c in pool if c["itemCd"] not in used_item_cds]
+
+
+StoryVerifyFn = Callable[[str], str | None]
+
+
+def pick_story_match(
+    pool: list[dict], articles_by_brand: dict[str, list[dict]], verify_fn: StoryVerifyFn
+) -> tuple[tuple[dict, str | None, str | None], tuple[dict, str | None, str | None]] | None:
+    """기사가 있는 브랜드 중 실제 인물/행사 언급이 검증된 후보를 우선으로 찾는다.
+    검증된 후보가 2개 미만이면, 브랜드만 다른 나머지 후보로 남은 자리를 채운다
+    (quote/url은 None — 없는 이야기를 지어내지 않는다, 대신 경기 자체는 후보만
+    있으면 항상 채운다). 서로 다른 브랜드가 풀에 2개 미만이면 그때만 None(경기
+    자체를 못 만듦)."""
+    verified: list[tuple[dict, str, str]] = []
+    seen_brands: set[str] = set()
+    for candidate in pool:
+        brand = candidate.get("brandName")
+        if not brand or brand in seen_brands:
+            continue
+        articles = articles_by_brand.get(brand)
+        if not articles:
+            continue
+        quote = verify_fn(articles[0]["excerpt"] or articles[0]["title"])
+        if quote is None:
+            continue
+        verified.append((candidate, quote, articles[0]["url"]))
+        seen_brands.add(brand)
+        if len(verified) == 2:
+            return verified[0], verified[1]
+
+    fallback: list[tuple[dict, str | None, str | None]] = list(verified)
+    for candidate in pool:
+        brand = candidate.get("brandName")
+        if not brand or brand in seen_brands:
+            continue
+        fallback.append((candidate, None, None))
+        seen_brands.add(brand)
+        if len(fallback) == 2:
+            break
+
+    if len(fallback) < 2:
+        return None
+    return fallback[0], fallback[1]
+
+
+PhilosophySummarizeFn = Callable[[str], str | None]
+
+
+def pick_philosophy_match(
+    pool: list[dict], intro_by_brand: dict[str, str], summarize_fn: PhilosophySummarizeFn
+) -> tuple[tuple[dict, str], tuple[dict, str]] | None:
+    """소개글 있는 브랜드 중 요약 생성에 성공한 후보 2개(서로 다른 브랜드)를 찾는다.
+    각 결과는 (카드, 철학 문구) 튜플."""
+    found: list[tuple[dict, str]] = []
+    seen_brands: set[str] = set()
+    for candidate in pool:
+        brand = candidate.get("brandName")
+        if not brand or brand in seen_brands:
+            continue
+        intro = intro_by_brand.get(brand)
+        if not intro:
+            continue
+        summary = summarize_fn(intro)
+        if summary is None:
+            continue
+        found.append((candidate, summary))
+        seen_brands.add(brand)
+        if len(found) == 2:
+            return found[0], found[1]
+    return None
