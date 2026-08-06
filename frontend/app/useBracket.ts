@@ -39,6 +39,7 @@ export function useBracket(): UseBracketResult {
   const [semifinals, setSemifinals] = useState<BracketCard[][]>([]);
   const [semifinalIndex, setSemifinalIndex] = useState(0);
   const [semifinalWinners, setSemifinalWinners] = useState<BracketCard[]>([]);
+  // 홀수 명 진출 시 이번 라운드 부전승으로 대기, 다음 라운드 페어링에 합류
   const [byeWinners, setByeWinners] = useState<BracketCard[]>([]);
   const [phase, setPhase] = useState<BracketPhase>("quarterfinal");
   const [winner, setWinner] = useState<BracketCard | null>(null);
