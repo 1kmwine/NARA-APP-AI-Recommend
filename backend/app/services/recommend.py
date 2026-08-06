@@ -60,7 +60,7 @@ def query_candidates(
             f"""
             SELECT i.itemCd, i.nameKo, i.type, i.producer, i.variety, i.country,
                    i.place, i.countryName, i.taste AS taste_raw, i.desc1, i.pdataId,
-                   i.reviews, i.wishes,
+                   i.reviews, i.wishes, i.brandName,
                    p.price_krw,
                    n.taste AS notes_taste_raw, n.tastingNote, n.foodPairing
             FROM wine_info.integrated_item_info i
