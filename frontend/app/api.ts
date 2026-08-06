@@ -63,3 +63,39 @@ export function imageUrl(pdataId: string | null, variant: "thumb" | "removebg" =
   if (!pdataId) return null;
   return `/api/images/${pdataId}?variant=${variant}`;
 }
+
+export interface BracketCard extends WineCard {
+  axis_label: string;
+}
+
+export interface BracketMatch {
+  round: "quarterfinal" | "semifinal" | "final";
+  axis: string;
+  cards: BracketCard[];
+}
+
+export interface BracketResponse {
+  matches: BracketMatch[];
+}
+
+export interface BracketParams {
+  priceTier: number;
+  countryIndex: number;
+  regionIndex: number;
+  wineType: WineType;
+  pairingText?: string;
+}
+
+export async function fetchBracket(params: BracketParams): Promise<BracketResponse> {
+  const search = new URLSearchParams({
+    price_tier: String(params.priceTier),
+    country_index: String(params.countryIndex),
+    region_index: String(params.regionIndex),
+    wine_type: params.wineType,
+  });
+  if (params.pairingText) search.set("pairing_text", params.pairingText);
+
+  const response = await fetch(`/api/bracket?${search.toString()}`);
+  if (!response.ok) throw new Error(`bracket 요청 실패: ${response.status}`);
+  return response.json();
+}
