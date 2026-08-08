@@ -45,7 +45,7 @@ def bracket(
         price_min=price_min,
         price_max=price_max,
     )
-    if not pool:
+    if len(pool) < 2:
         raise HTTPException(status_code=404, detail="추천할 와인을 찾지 못함")
 
     for c in pool:
