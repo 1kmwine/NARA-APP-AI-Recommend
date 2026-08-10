@@ -29,6 +29,8 @@ def classify_aroma_tags(tags: list[str]) -> Aroma:
     fruit_count = 0
     floral_count = 0
     for tag in tags:
+        if not isinstance(tag, str):
+            continue
         normalized = tag.strip().lower()
         if normalized in FRUIT_TAGS:
             fruit_count += 1

@@ -32,6 +32,13 @@ def test_classify_aroma_tags_unknown_tags_ignored():
     assert classify_aroma_tags(tags) == "floral_tertiary"
 
 
+def test_classify_aroma_tags_ignores_non_string_entries():
+    # DB의 aroma JSON 배열에 null이 섞여 있는 실제 케이스(AttributeError로
+    # 크래시하던 버그) — 문자열 아닌 항목은 그냥 건너뛰고 나머지로 분류한다
+    tags = ["Cherry", None, "Plum"]
+    assert classify_aroma_tags(tags) == "fruit"
+
+
 def test_fetch_aroma_tags_returns_dict_keyed_by_pdata_id():
     fake_conn = MagicMock()
     fake_conn.execute.return_value.mappings.return_value.all.return_value = [
