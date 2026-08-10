@@ -70,7 +70,7 @@ def pick_story_match(
             continue
         tried_brands.add(brand)
         quote = verify_fn(articles[0]["excerpt"] or articles[0]["title"])
-        if quote is None:
+        if not quote:
             unverified_candidates.append(candidate)
             continue
         verified.append((candidate, quote, articles[0]["url"]))
@@ -138,7 +138,7 @@ def pick_philosophy_match(
         if not intro:
             continue
         summary = summarize_fn(intro)
-        if summary is None:
+        if not summary:
             continue
         found.append((candidate, summary))
         seen_brands.add(brand)
