@@ -65,6 +65,13 @@ def test_infer_taste_target_falls_back_to_neutral_for_unknown_text():
     assert result == NEUTRAL_TASTE
 
 
+def test_infer_taste_target_prioritizes_spicy_over_fried_keyword():
+    # "매운 튀김"은 두 규칙 다 걸리지만 매운맛 상쇄가 더 뚜렷한 원칙이라
+    # 먼저 매치돼야 한다 — tannin=1(매운 규칙)이지 tannin=4(튀김 규칙)가 아님.
+    result = infer_taste_target("매운 튀김")
+    assert result.tannin == 1
+
+
 def test_score_by_preference_returns_unchanged_when_no_signal():
     candidates = [{"itemCd": "a", "taste": None}, {"itemCd": "b", "taste": None}]
     assert score_by_preference(candidates, liked=None, disliked=None) == candidates
