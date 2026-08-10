@@ -1,7 +1,5 @@
-import json
-from unittest.mock import MagicMock, patch
-
 from app.services.pairing import (
+    FOOD_TASTE_TABLE,
     NEUTRAL_TASTE,
     TasteVector,
     infer_taste_target,
@@ -39,33 +37,32 @@ def test_score_by_pairing_treats_missing_taste_as_neutral():
     assert ranked[0]["itemCd"] == "no-taste"
 
 
-@patch("app.services.pairing._call_gemini")
-def test_infer_taste_target_parses_llm_json_response(mock_call):
-    mock_call.return_value = json.dumps(
-        {"sweetness": 2, "acidity": 4, "body": 3, "tannin": 1}
-    )
-    result = infer_taste_target("훈제 연어")
-    assert result == TasteVector(sweetness=2, acidity=4, body=3, tannin=1)
+def test_infer_taste_target_returns_table_value_for_known_food():
+    result = infer_taste_target("초밥")
+    assert result == FOOD_TASTE_TABLE["초밥"]
 
 
-@patch("app.services.pairing._call_gemini")
-def test_infer_taste_target_falls_back_to_neutral_on_bad_response(mock_call):
-    mock_call.return_value = "이건 JSON이 아님"
-    result = infer_taste_target("아무 음식")
-    assert result == TasteVector(sweetness=2, acidity=2, body=2, tannin=2)
+def test_infer_taste_target_matches_spicy_keyword():
+    result = infer_taste_target("엄청 매운 마라탕")
+    assert result.tannin == 1
+    assert result.sweetness == 3
 
 
-def test_infer_taste_target_falls_back_to_neutral_when_call_raises():
-    with patch("app.services.pairing._call_gemini", side_effect=RuntimeError("network down")):
-        result = infer_taste_target("아무 음식")
+def test_infer_taste_target_matches_fried_keyword():
+    result = infer_taste_target("바삭한 새우튀김")
+    assert result.acidity == 4
+    assert result.body == 4
+
+
+def test_infer_taste_target_matches_raw_fish_keyword():
+    result = infer_taste_target("연어 회 한 접시")
+    assert result.acidity == 4
+    assert result.body == 1
+
+
+def test_infer_taste_target_falls_back_to_neutral_for_unknown_text():
+    result = infer_taste_target("아무 의미 없는 텍스트")
     assert result == NEUTRAL_TASTE
-
-
-@patch("app.services.pairing._call_gemini")
-def test_infer_taste_target_strips_markdown_code_fence(mock_call):
-    mock_call.return_value = '```json\n{"sweetness": 1, "acidity": 3, "body": 2, "tannin": 4}\n```'
-    result = infer_taste_target("매운 음식")
-    assert result == TasteVector(sweetness=1, acidity=3, body=2, tannin=4)
 
 
 def test_score_by_preference_returns_unchanged_when_no_signal():

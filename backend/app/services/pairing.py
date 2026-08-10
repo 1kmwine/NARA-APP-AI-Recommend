@@ -1,33 +1,5 @@
-import json
-import logging
 import math
 from dataclasses import dataclass
-
-import httpx
-
-from app.config import settings
-
-logger = logging.getLogger(__name__)
-
-GEMINI_MODEL = "gemini-2.0-flash"
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}:generateContent"
-
-# Wine Folly(winefolly.com) 페어링 방법론 요약(우리 말로 재정리, 원문 인용 아님) —
-# 음식의 6대 기본맛(짠맛/산미/단맛/쓴맛/지방/매운맛) 중 지배적 요소를 파악해
-# congruent(향 공명)/complementary(대비) 매칭 원칙으로 이상적 와인 맛벡터를 추론한다.
-PAIRING_SYSTEM_PROMPT = """너는 소믈리에다. 사용자가 입력한 음식 이름을 보고,
-그 음식과 어울리는 와인의 이상적인 맛 구조를 0~5 정수로만 추론해라.
-
-원칙:
-- 지방이 많은 음식(구이, 튀김, 크림소스)은 산도(acidity)나 타닌(tannin)이 있는 와인이
-  기름기를 상쇄한다.
-- 매운 음식은 타닌이 낮고 약간의 단맛(sweetness)이 있는 와인이 매운맛을 눌러준다.
-- 산미 있는 음식(회, 신 음식)은 산도 높은 와인과 맞춘다.
-- 향신료 향과 와인의 아로마가 겹치면(congruent) 좋은 매칭이다.
-
-아래 JSON 형식으로만 답해라. 다른 텍스트 금지:
-{"sweetness": 0-5, "acidity": 0-5, "body": 0-5, "tannin": 0-5}
-"""
 
 
 @dataclass(frozen=True)
@@ -87,46 +59,38 @@ def score_by_preference(
     return sorted(candidates, key=score)
 
 
-def _call_gemini(food_text: str) -> str:
-    response = httpx.post(
-        GEMINI_URL,
-        params={"key": settings.gemini_api_key},
-        json={
-            "systemInstruction": {"parts": [{"text": PAIRING_SYSTEM_PROMPT}]},
-            "contents": [{"parts": [{"text": food_text}]}],
-            "generationConfig": {"responseMimeType": "application/json"},
-        },
-        timeout=10,
-    )
-    response.raise_for_status()
-    return response.json()["candidates"][0]["content"]["parts"][0]["text"]
+# 프론트 REAL_FOODS(page.tsx) 9종 고정 맛벡터 — Wine Folly 페어링 원칙(지방↔산도/
+# 타닌, 매운맛↔낮은타닌+약간단맛, 산미↔산도)을 사람이 직접 적용한 값.
+FOOD_TASTE_TABLE: dict[str, TasteVector] = {
+    "삼겹살": TasteVector(sweetness=1, acidity=2, body=4, tannin=4),
+    "치킨": TasteVector(sweetness=1, acidity=3, body=3, tannin=2),
+    "스테이크": TasteVector(sweetness=0, acidity=2, body=5, tannin=5),
+    "파스타": TasteVector(sweetness=1, acidity=3, body=3, tannin=2),
+    "초밥": TasteVector(sweetness=1, acidity=4, body=1, tannin=0),
+    "치즈": TasteVector(sweetness=2, acidity=2, body=3, tannin=3),
+    "매운탕": TasteVector(sweetness=3, acidity=2, body=2, tannin=1),
+    "피자": TasteVector(sweetness=1, acidity=3, body=3, tannin=3),
+    "디저트": TasteVector(sweetness=5, acidity=1, body=2, tannin=0),
+}
+
+# 매운맛 상쇄가 가장 뚜렷한 페어링 원칙이라 우선순위 최상단에 둔다.
+_KEYWORD_RULES: list[tuple[tuple[str, ...], TasteVector]] = [
+    (("맵", "매운"), TasteVector(sweetness=3, acidity=2, body=2, tannin=1)),
+    (("튀김", "구이", "크림", "기름"), TasteVector(sweetness=1, acidity=4, body=4, tannin=4)),
+    (("회", "새콤", "신맛"), TasteVector(sweetness=1, acidity=4, body=1, tannin=0)),
+]
 
 
-def _strip_code_fence(raw: str) -> str:
-    text = raw.strip()
-    if text.startswith("```"):
-        text = text.removeprefix("```json").removeprefix("```")
-        text = text.removesuffix("```")
-        text = text.strip()
-    return text
+def _infer_from_keywords(food_text: str) -> TasteVector:
+    for keywords, vector in _KEYWORD_RULES:
+        if any(k in food_text for k in keywords):
+            return vector
+    return NEUTRAL_TASTE
 
 
 def infer_taste_target(food_text: str) -> TasteVector:
-    try:
-        raw = _call_gemini(food_text)
-    except Exception as e:
-        logger.warning("페어링 LLM(Gemini) 호출 실패: food_text=%s error=%s", food_text, e)
-        return NEUTRAL_TASTE
-
-    raw = _strip_code_fence(raw)
-    try:
-        data = json.loads(raw)
-        return TasteVector(
-            sweetness=int(data["sweetness"]),
-            acidity=int(data["acidity"]),
-            body=int(data["body"]),
-            tannin=int(data["tannin"]),
-        )
-    except (json.JSONDecodeError, KeyError, ValueError, TypeError) as e:
-        logger.warning("페어링 LLM 응답 파싱 실패: food_text=%s raw=%r error=%s", food_text, raw, e)
-        return NEUTRAL_TASTE
+    """음식 이름 → 이상적 와인 맛벡터. REAL_FOODS 9종은 고정 테이블에서 바로
+    찾고, 그 외 자유 텍스트는 키워드 매칭으로 추론한다(둘 다 안 걸리면 중립값)."""
+    if food_text in FOOD_TASTE_TABLE:
+        return FOOD_TASTE_TABLE[food_text]
+    return _infer_from_keywords(food_text)
