@@ -6,7 +6,7 @@ from app.routers.recommend import _parse_json_field
 from app.schemas import BracketResponse
 from app.services.aroma import fetch_aroma_tags
 from app.services.bracket import build_bracket, build_candidate_pool
-from app.services.bracket_content import summarize_philosophy, verify_story_mention
+from app.services.bracket_content import excerpt_philosophy, excerpt_story
 from app.services.brand_content import fetch_brand_articles, fetch_brand_intro
 from app.services.pairing import infer_taste_target, score_by_pairing
 from app.services.price_tiers import widen_tier_ranges
@@ -71,6 +71,6 @@ def bracket(
         aroma_by_pdata_id=aroma_by_pdata_id,
         articles_by_brand=articles_by_brand,
         intro_by_brand=intro_by_brand,
-        verify_fn=verify_story_mention,
-        summarize_fn=summarize_philosophy,
+        verify_fn=excerpt_story,
+        summarize_fn=excerpt_philosophy,
     )
